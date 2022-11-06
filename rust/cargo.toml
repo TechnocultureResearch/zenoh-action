@@ -1,0 +1,9 @@
+[package]
+name = "zenoh-action"
+version = "0.0.1"
+edition = "2021"
+
+description = "Action server example using zenoh"
+keywords = ["Zenoh", "Robotics"]
+readme = "README.md"
+
