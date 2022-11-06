@@ -16,3 +16,7 @@ services:
     build: ../rust
     depends_on:
       - zenohd
+
+        #action-dashboard:
+        #image: ...
+        #build: ...
