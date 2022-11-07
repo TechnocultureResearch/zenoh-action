@@ -3,7 +3,15 @@ services:
 
   action-server:
     image: zenoh-action-server
-    build: ../rust
+    build: ../python/action_server
+    depends_on:
+      - log-forwarder
+      - local-zenoh-router
+    restart: unless-stopped
+
+  action-test:
+    image: zenoh-action-client
+    build: ../python/action_client
     depends_on:
       - log-forwarder
       - local-zenoh-router
