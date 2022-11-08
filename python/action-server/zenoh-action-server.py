@@ -128,7 +128,6 @@ if __name__ == '__main__':
 
     # 1. Start the action server
     session = session(settings)
-
     # 2. wait for events
 
     #   States: Idle, Start, Busy, Stop, Error
