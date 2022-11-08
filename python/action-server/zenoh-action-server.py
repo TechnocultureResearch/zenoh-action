@@ -42,7 +42,7 @@ class handlers():
         for stored_name, sample in self.store.items():
             if query.key_expr.intersects(stored_name):
                 query.reply(sample)
-
+    # this function should return a value to acknowledge that the publisher has stopped.
     def feedback(self, key, pub, iter):
         for idx in itertools.count() if iter is None else range(iter):
             time.sleep(1)
