@@ -120,6 +120,19 @@ class session(handlers):
         self.pub.undeclare()
         self.session.close()
 
+class state_transitions:
+    states = ['Idle', 'Start', 'Busy', 'Stop', 'Error']
+    # trigger functions
+    def OnEntry():
+        pass
+    def OnExit():
+        pass
+    def start():
+        pass
+    def stop():
+        pass
+    def status():
+        pass
 
 if __name__ == '__main__':
     # script goes here
