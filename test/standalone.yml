@@ -32,3 +32,4 @@ services:
      depends_on:
        - log-forwarder
      restart: unless-stopped
+
