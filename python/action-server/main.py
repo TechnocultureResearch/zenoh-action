@@ -144,7 +144,7 @@ class session(handlers):
         self.pub.undeclare()
         self.session.close()
 
-class transition_functions:
+class transition_:
     #   States: Idle, Start, Busy, Stop, Error
     #   Events: Start, Stop
 
@@ -153,13 +153,23 @@ class transition_functions:
     #   Monitor: Status ---> Publishing udates on our own regular OR irregular frequency
 
     states = ['Idle', 'Start', 'Busy', 'Stop', 'Error']
+    transitions = [['start', 'Idle','Start'],
+                    ['status', 'Start', 'Busy'],
+                    ['status', 'Busy', 'Busy'],
+                    ['stop', 'Busy', 'Stop'],
+                    ['status', 'Stop', 'Idle'],
+                    ['raise_error', '*', 'Error']]
 
-    def __init__(self, obj):
+    def __init__(self, obj, setting):
         self.obj = obj
+        self.machine = Machine(model=self, states=transition_.states,
+                               transitions=transition_.transitions, on_exception='raise_error', initial='Idle')
+        self.setting = setting
+
     # trigger functions
     def OnEntry() -> bool:
         # monitor status continuously
-        if self.obj.get('/status') == 'Completed':
+        if self.obj.get(self.setting.status) == 'Completed':
             return True
         return False
         
@@ -167,18 +177,18 @@ class transition_functions:
         # return status value
         print("Work completed.")
         
-    def is_started():
-        self.obj.get('start')
     def start():
         # start the session, make status busy, and publisher starts publishing on subscriber.
         self.obj.setup_action_server()
         self.obj.publish_data()
+        self.status()
         if OnEntry:
             OnExit()
-            stop()
+            self.stop()
         
     def stop():
         # stops the session, undeclares all variables, and print the status value.
+        self.status()
         self.obj.close_action_server()
 
     async def status():
@@ -195,11 +205,6 @@ class transition_functions:
     # start -> busy, condition 
     # busy -> idle , condition
 
-transition0 = dict(trigger='Start', source='Idle', dest='Start')
-transition1=dict(trigger='Status', source='Start', dest='busy')
-transition2=dict(trigger='stop', source='busy', dest='stop')
-transition3= dict(trigger='status', source='stop', dest='idle')
-transition3 = dict(trigger='raise_error', source="", dest='Error')
 
 if __name__ == '__main__':
     # script goes here
@@ -209,7 +214,10 @@ if __name__ == '__main__':
     # 1. Start the action server
     session = session(settings)
     # 2. wait for events
+    events = transitions_(session, settings)
 
+    if session.get(settings.start) == 'Started':
+        events.start()
     
 
 
