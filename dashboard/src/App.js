@@ -1,16 +1,21 @@
 import { useState, useEffect } from "react";
 import './App.css';
+import axios from 'axios';
 import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const url = "http://localhost:8000";
-const key_expression = "Genotyper/1/DNASensor/1";
+import action from "./data/action.json";
+
+const url = action.base_url;
+const key_expression = action.key_expression;
 
 function endpoint_url(endpoint = "") {
     return `${url}/${key_expression}/${endpoint.toLowerCase()}`;
 }
 
 const status_url = endpoint_url("status");
+
+const actionServerActions = new Set(action.actions.map(item => item.name));
 
 const HealthPlot = () => {
     let [actionStatus, setStatus] = useState("Unknown");
@@ -25,20 +30,20 @@ const HealthPlot = () => {
         });
     });
 
-    function sendAction(actionString) {
-        // Some code ...
-        // What should be done when an action is to be dispatched
-        // do a fetch POST/PUT request
-        if (actionString === "start" || actionString === "stop") {
-            fetch(endpoint_url(actionString), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'text/plain' }
-            });
-            toast.info(`Action sent: ${actionString}`);
+    const postAction = async action => {
+        if (actionServerActions.has(action)) {
+            try {
+                const response = await axios.post(endpoint_url(action));
+                toast.success(`Action dispatched: ${action}`);
+                return response.data;
+            } catch (error) {
+                toast.error(error.message);
+                throw error;
+            } 
         } else {
-            console.error(`Not a valid action string: ${actionString}`);
+            toast.error(`Action(${action}) not supported.`);
         }
-    }
+    };
 
     return (
         <div>
@@ -46,8 +51,10 @@ const HealthPlot = () => {
             <p>{actionStatus}</p>
 
             <h3>Action Buttons</h3>
-            <button onClick={() => sendAction("start")}>Start</button>
-            <button onClick={() => sendAction("stop")}>Stop</button>
+            <button onClick={() => postAction("start")}>Start</button>
+            <button onClick={() => postAction("stop")}>Stop</button>
+
+            <button onClick={() => postAction("hello")}>Hello</button>
         </div>
     );
 }
@@ -55,21 +62,21 @@ const HealthPlot = () => {
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>Action Dashboard</h1>
-        <h3>Action Endpoint</h3>
-        <p>{endpoint_url()}</p>
-      </header>
+        <header className="App-header">
+            <h1>Action Dashboard</h1>
+            <h3>Action Endpoint</h3>
+            <p>{endpoint_url()}</p>
+        </header>
 
-      <ToastContainer 
-        autoClose={1000}
-        transition={Flip}
-        hideProgressBar={false}
-        pauseOnFocusLoss={false}
-        newestOnTop={false}
-        pauseOnHover={false}
-      />
-      <HealthPlot />
+        <ToastContainer 
+            autoClose={1000}
+            transition={Flip}
+            hideProgressBar={false}
+            pauseOnFocusLoss={false}
+            newestOnTop={false}
+            pauseOnHover={false}
+        />
+        <HealthPlot />
     </div>
   );
 }
