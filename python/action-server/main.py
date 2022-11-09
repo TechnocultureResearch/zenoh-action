@@ -186,16 +186,20 @@ class transition_functions:
         await asyncio.sleep(60)
         print(self.obj.get('status'))
     
+    def raise_error(self):
+        print('error')
     
     # State remains idle until start triggers
     # When start triggers state will be busy and remains busy until the event stop triggers
     # when stop triggers then the state will be Idle 
     # start -> busy, condition 
     # busy -> idle , condition
-transition0 = dict(trigger='Start', source='Start', dest='Busy')
-transition1=dict(trigger='Status', source='Busy', dest='Idle', after_state_change=['status', 'OnExit'], unless='OnEntry')
-transition2 = dict(trigger='raise_error', source="", dest='Error', on)
 
+transition0 = dict(trigger='Start', source='Idle', dest='Start')
+transition1=dict(trigger='Status', source='Start', dest='busy')
+transition2=dict(trigger='stop', source='busy', dest='stop')
+transition3= dict(trigger='status', source='stop', dest='idle')
+transition3 = dict(trigger='raise_error', source="", dest='Error')
 
 if __name__ == '__main__':
     # script goes here
