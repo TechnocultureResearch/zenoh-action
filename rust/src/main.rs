@@ -6,9 +6,12 @@ async fn main() {
 
     let session = zenoh::open(config::default()).res().await.unwrap();
 
-    let health_key = "Genotyper/1/DNASensor/1/health".to_string();
+    let key_expression = "Genotyper/1/DNASensor/1".to_string();
+    let status_key = format!("{}/status", key_expression);
+    println!("status_key: {}", status_key);
+
     loop {
-        session.put(&health_key, "healthy").res().await.unwrap();
+        session.put(&status_key, "idle").res().await.unwrap();
     }
 
     session.close().res().await.unwrap();
