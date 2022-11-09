@@ -6,8 +6,11 @@ from typing import Optional
 from pydantic import BaseModel
 import logging
 from transitions import Machine
+from transitions.extensions.asyncio import AsyncMachine
+import asyncio
 log = logging.getLogger(__name__)
 
+# describe settings for parsing values.
 class ActionSettings(BaseModel):
     mode: str = None
     connect: str = None
@@ -23,11 +26,15 @@ class ActionSettings(BaseModel):
     iter = int
     value: str = None
     target: str
+    base_key_expr: str
+    declare_key_expr: str
 
 class handlers():
+    # handler functions which are going to use by session declarables.
     def __init__(self):
         self.store = dict()
 
+    # listens all the data which publisher puts on reciever.
     def listener(self, sample: Sample):
         print(">> [Subscriber] Received {} ('{}': '{}')"
             .format(sample.kind, sample.key_expr, sample.payload.decode("utf-8")))
@@ -36,21 +43,25 @@ class handlers():
         else:
             self.store[sample.key_expr] = sample
 
+    # replies of every query which get function asks.
     def query_handler(self, query: Query):
         print(">> [Queryable ] Received Query '{}'".format(query.selector))
         replies = []
         for stored_name, sample in self.store.items():
             if query.key_expr.intersects(stored_name):
                 query.reply(sample)
-    # this function should return a value to acknowledge that the publisher has stopped.
+
+    # for publishing the data on subscriber or can be said that the to take the feedback
     def feedback(self, key, pub, iter):
         for idx in itertools.count() if iter is None else range(iter):
             time.sleep(1)
             buf = (idx % 100) 
             print(f"Putting Data ('{key}': '{buf}')...")
             pub.put(buf)
+        
 
 class session(handlers):
+    # creates session and performs session related tasks. Takes an object of settings.
     def __init__(self, settings):
         self.setting = settings
         self.session = None
@@ -58,6 +69,7 @@ class session(handlers):
         self.pub = None
         self.queryable = None
     
+    # configures the zenoh configuration from settings variables and returns a configuration object.
     def configuration(self):
         conf = zenoh.Config.from_file(
             self.setting.config) if args.config is not None else zenoh.Config()
@@ -69,9 +81,11 @@ class session(handlers):
             conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.setting.listen))
         return conf
 
+    # puts single value on subscriber.
     def put(self, end_expr, value):
         session.put(self.setting.base_key_expr+self.setting.end_expr, value)
 
+    # defines target of the queryable.
     def target(self):
         target = {
             'ALL': QueryTarget.ALL(),
@@ -79,6 +93,7 @@ class session(handlers):
             'ALL_COMPLETE': QueryTarget.ALL_COMPLETE(),}.get(self.setting.target)
         return target
 
+    # sends the query to the queryable and print its output and returns a value of the sent keyexpr.
     def get(self, end_expr):
         result = session.get(self.setting.base_key_expr+self.setting.end_expr, zenoh.ListCollector(), target=target())
         for reply in replies():
@@ -86,11 +101,15 @@ class session(handlers):
                 key= reply.ok.key_expr
                 value =reply.ok.payload.decode("utf-8")
             except:
-                print(">> Received (ERROR: '{}')"
-                .format(reply.err.payload.decode("utf-8")))
-                return None
+                raise_error(reply.err.payload.decode("utf-8"))
         return value
 
+    def raise_error(self, error):
+        print(">> Received (ERROR: '{}')"
+                .format(error))
+        return True
+
+    # starts the action server and declares subscriber, queryable and publisher.
     def setup_action_server(self):
         # initiate logging
         log.info('Starting Action Server....')
@@ -98,41 +117,85 @@ class session(handlers):
 
         self.session = zenoh.open(configuration())
 
-        self.sub = self.session.declare_subscriber(key, listener(), reliability=Reliability.RELIABLE())
+        self.sub = self.session.declare_subscriber(self.setting.declare_key_expr, listener(), reliability=Reliability.RELIABLE())
         
-        self.queryable = self.session.declare_queryable(key, query_handler())
+        self.queryable = self.session.declare_queryable(self.setting.declare_key_expr, query_handler())
         
-        self.pub = self.session.declare_publisher(key)
+        self.pub = self.session.declare_publisher(self.setting.base_key_expr+self.setting.done)
         
         put(self.setting.start, 'Started')
         put(self.setting.health, 'Alive')
+        put(self.setting.status, 'Busy')
     
+    # publish the data on subscriber through publisher.
     def publish_data(self):
         feedback(self.setting.base_key_expr+self.setting.done, self.pub, self.setting.iter)
+        put(self.setting.status, 'Completed')
 
+    # closes the server and undeclares the declared variables.
     def close_action_server(self):
         log.warning('Stopping Session.....')
         put(self.setting.stop, 'Stopped')
         put(self.setting.start, None)
         put(self.setting.health, None)
+        put(self.setting.status, None)
         self.sub.undeclare()
         self.queryable.undeclare()
         self.pub.undeclare()
         self.session.close()
 
-class state_transitions:
+class transition_functions:
+    #   States: Idle, Start, Busy, Stop, Error
+    #   Events: Start, Stop
+
+    # State: OnEntry, OnExit
+
+    #   Monitor: Status ---> Publishing udates on our own regular OR irregular frequency
+
     states = ['Idle', 'Start', 'Busy', 'Stop', 'Error']
+
+    def __init__(self, obj):
+        self.obj = obj
     # trigger functions
-    def OnEntry():
-        pass
+    def OnEntry() -> bool:
+        # monitor status continuously
+        if self.obj.get('/status') == 'Completed':
+            return True
+        return False
+        
     def OnExit():
-        pass
+        # return status value
+        print("Work completed.")
+        
+    def is_started():
+        self.obj.get('start')
     def start():
-        pass
+        # start the session, make status busy, and publisher starts publishing on subscriber.
+        self.obj.setup_action_server()
+        self.obj.publish_data()
+        if OnEntry:
+            OnExit()
+            stop()
+        
     def stop():
-        pass
-    def status():
-        pass
+        # stops the session, undeclares all variables, and print the status value.
+        self.obj.close_action_server()
+
+    async def status():
+        # make status busy until the stop triggers.
+        await asyncio.sleep(60)
+        print(self.obj.get('status'))
+    
+    
+    # State remains idle until start triggers
+    # When start triggers state will be busy and remains busy until the event stop triggers
+    # when stop triggers then the state will be Idle 
+    # start -> busy, condition 
+    # busy -> idle , condition
+transition0 = dict(trigger='Start', source='Start', dest='Busy')
+transition1=dict(trigger='Status', source='Busy', dest='Idle', after_state_change=['status', 'OnExit'], unless='OnEntry')
+transition2 = dict(trigger='raise_error', source="", dest='Error', on)
+
 
 if __name__ == '__main__':
     # script goes here
@@ -143,12 +206,7 @@ if __name__ == '__main__':
     session = session(settings)
     # 2. wait for events
 
-    #   States: Idle, Start, Busy, Stop, Error
-    #   Events: Start, Stop
-
-    # State: OnEntry, OnExit
-
-    #   Monitor: Status ---> Publishing udates on our own regular OR irregular frequency
+    
 
 
     '''
