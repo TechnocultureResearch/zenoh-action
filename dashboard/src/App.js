@@ -3,7 +3,6 @@ import './App.css';
 import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-
 const url = "http://localhost:8000";
 const key_expression = "Genotyper/1/DNASensor/1";
 
@@ -27,8 +26,18 @@ const HealthPlot = () => {
     });
 
     function sendAction(actionString) {
-        console.log(actionString);
-        toast.info(`Action sent: ${actionString}`);
+        // Some code ...
+        // What should be done when an action is to be dispatched
+        // do a fetch POST/PUT request
+        if (actionString === "start" || actionString === "stop") {
+            fetch(endpoint_url(actionString), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'text/plain' }
+            });
+            toast.info(`Action sent: ${actionString}`);
+        } else {
+            console.error(`Not a valid action string: ${actionString}`);
+        }
     }
 
     return (
