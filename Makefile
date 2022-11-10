@@ -1,21 +1,23 @@
 COMPOSE_DIR:=test
 
-MINIMAL:=${COMPOSE_DIR}/minimal.yml
-STANDALONE:=${COMPOSE_DIR}/standalone.yml
+MINIMAL:=./${COMPOSE_DIR}/minimal.yml
+STANDALONE:=./${COMPOSE_DIR}/standalone.yml
 
 ACTION_FILE:=action.json
 DASHBOARD_DATA:=dashboard/src/data
 
-dash:
+all: build_min min
+
+min:
 	docker compose -f ${MINIMAL} up
 
-buildmin:
+build_min:
 	docker compose -f ${MINIMAL} build
 
-standalone:
+main:
 	docker compose -f ${STANDALONE} up
 
-build:
+build_main:
 	docker compose -f ${STANDALONE} build
 
 symlink:
