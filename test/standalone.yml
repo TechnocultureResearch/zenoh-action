@@ -17,6 +17,15 @@ services:
       - local-zenoh-router
     restart: unless-stopped
 
+  action-dashboard:
+    image: action-dashboard
+    build: ../dashboard
+    depends_on:
+      - action-server
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
   log-forwarder:
     image: fluent/fluent-bit:2.0
     volumes:
@@ -40,3 +49,4 @@ services:
      depends_on:
        - log-forwarder
      restart: unless-stopped
+
