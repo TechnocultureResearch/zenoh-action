@@ -6,18 +6,17 @@ STANDALONE:=${COMPOSE_DIR}/standalone.yml
 ACTION_FILE:=action.json
 DASHBOARD_DATA:=dashboard/src/data
 
-dash:
+dash: symlink
 	docker compose -f ${MINIMAL} up
 
-buildmin:
+buildmin: symlink
 	docker compose -f ${MINIMAL} build
 
-standalone:
+standalone: symlink
 	docker compose -f ${STANDALONE} up
 
-build:
+build: symlink
 	docker compose -f ${STANDALONE} build
 
 symlink:
-	ln -s ${ACTION_FILE} ${DASHBOARD_DATA}/${ACTION_FILE}
-
+	ln -sf ${PWD}/${ACTION_FILE} ${PWD}/${DASHBOARD_DATA}/${ACTION_FILE}
