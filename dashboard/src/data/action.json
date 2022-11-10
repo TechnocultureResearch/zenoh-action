@@ -1,14 +1,1 @@
-{
-    "base_url": "http://localhost:8000",
-    "key_expression": "Genotyper/1/DNASensor/1",
-    "actions": [ 
-        "start", 
-        "stop" 
-    ],
-    "states": [
-        "idle",
-        "ready",
-        "busy"
-    ],
-    "progress_when": [ "busy" ]
-}
+action.json
