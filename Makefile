@@ -6,16 +6,16 @@ STANDALONE:=${COMPOSE_DIR}/standalone.yml
 ACTION_FILE:=action.json
 DASHBOARD_DATA:=dashboard/src/data
 
-dash: symlink
+dash:
 	docker compose -f ${MINIMAL} up
 
-buildmin: symlink
+buildmin:
 	docker compose -f ${MINIMAL} build
 
-standalone: symlink
+standalone:
 	docker compose -f ${STANDALONE} up
 
-build: symlink
+build:
 	docker compose -f ${STANDALONE} build
 
 symlink:
