@@ -4,6 +4,7 @@ import zenoh
 from zenoh import QueryTarget, Value
 from typing import Optional
 from pydantic import BaseModel
+import yaml
 
 class ActionSettings(BaseModel):
     mode: str = None
@@ -17,11 +18,12 @@ class ActionSettings(BaseModel):
     busy: str
     done: str
     base_key_expr: str
-    iter = int
+    iter: int
     value: str = None
     target: str
+    declare_key_expr: str
 
-class client:
+class Client:
     def __init__(self, settings):
         self.settings = settings
         self.session = None
@@ -45,7 +47,7 @@ class client:
         return target
 
     def get_selector_key(self, end_keyexpr):
-        replies = session.get(self.settings.base_key_expr+self.settings.end_keyexpr, zenoh.ListCollector(), target=target())
+        replies = self.session.get(self.settings.base_key_expr+end_keyexpr, zenoh.ListCollector(), target=self.target())
         for reply in replies():
             try:
                 print(">> Received ('{}': '{}')"
@@ -58,19 +60,27 @@ class client:
 
     def setup_session(self):
         zenoh.init_logger()
-        self.session = zenoh.open(configuration())
+        self.session = zenoh.open(self.configuration())
 
     def put(self, end_keyexpr, value):
         self.session.put(self.settings.base_key_expr+self.settings.end_keyexpr, value)
 
     def stop_session():
-        put(self.settings.stop, 'Stopped')
+        self.put(self.settings.stop, 'Stopped')
 
-    def get_status():
-        get_selector_key(self.settings.status)
+    def get_status(self):
+        self.get_selector_key(self.settings.status)
 
 
 if __name__ == '__main__':
+    with open('action.yml') as file:
+        try:
+            settingConfig = yaml.safe_load(file)  
+        except yaml.YAMLError as exc:
+            print(exc)
 
-    settings = ActionSettings('action.yml')
+    settings = ActionSettings(**settingConfig)
+    session = Client(settings)
+    session.setup_session()
+    session.get_status()
     

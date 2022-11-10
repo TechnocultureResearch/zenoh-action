@@ -6,13 +6,11 @@ status: /status
 health: /health
 busy: /busy
 done: /done
-value: None
-iter: '10'
+iter: 10
 target: ALL
-config: None
-listen: None
-connect: None
-mode:
-  peer: peer
-  client: client
+config: 
+listen: 
+connect: 
+mode: peer
+declare_key_expr: Genotyper/1/DNASensor/**
 

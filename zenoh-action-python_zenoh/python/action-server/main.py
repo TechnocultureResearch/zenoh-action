@@ -31,10 +31,7 @@ class ActionSettings(BaseModel):
     declare_key_expr: str
 
 store = {}
-session = None
-sub = None
-pub = None
-queryable = None
+
 class Handlers():
     # handler functions which are going to ussession declarables.
     # listens all the data which publisher puts on reciever.
@@ -55,10 +52,7 @@ class Handlers():
                 query.reply(sample)
 
     # for publishing the data on subscriber or can be said that the to take the feedback
-    def publisher(self, key, iter):
-        print(iter)
-        print(pub)
-        print(sub)
+    def publisher(self, key,pub, iter):
         for idx in itertools.count() if iter is None else range(int(iter)):
             time.sleep(1)
             buf = (idx % 100) 
@@ -67,10 +61,10 @@ class Handlers():
         
 
 class Session(Handlers):
-    # creates session and perform session related tasks. Takes an object of settings.
+    # creates self.session and perform self.session related tasks. Takes an object of settings.
     def __init__(self, settings):
         self.setting = settings
-        #session = None
+        #self.session = None
         #self.sub = None
         #pub = None
         #queryable = None
@@ -97,7 +91,7 @@ class Session(Handlers):
 
     # sends the query toqueryable and print its output and returns a value of the sent keyexpr.
     def get(self, end_expr):
-        result = session.get(self.setting.base_key_expr+end_expr, zenoh.ListCollector(), target=self.target())
+        result = self.session.get(self.setting.base_key_expr+end_expr, zenoh.ListCollector(), target=self.target())
         for reply in result():
             try:
                 key= reply.ok.key_expr
@@ -106,52 +100,42 @@ class Session(Handlers):
                 raise_error(reply.err.payload.decode("utf-8"))
         return value
 
-    def raise_error(self, error):
-        print(">> Received (ERROR: '{}')"
-                .format(error))
-        
-
     # starts the action server and declares subscriqueryable and publisher.
     def setup_action_server(self):
         # initiate logging
         log.info('Starting Action Server....')
         zenoh.init_logger()
-        session = zenoh.open(self.configuration())
+        self.session = zenoh.open(self.configuration())
         
-        sub = session.declare_subscriber(self.setting.declare_key_expr, self.listener, reliability=Reliability.RELIABLE())
+        self.sub = self.session.declare_subscriber(self.setting.declare_key_expr, self.listener, reliability=Reliability.RELIABLE())
         
-        queryable = session.declare_queryable(self.setting.declare_key_expr, self.query_handler)
+        self.queryable = self.session.declare_queryable(self.setting.declare_key_expr, self.query_handler)
         
-        pub = session.declare_publisher(self.setting.base_key_expr+self.setting.done)
+        self.pub = self.session.declare_publisher(self.setting.base_key_expr+self.setting.done)
         
-        session.put(self.setting.base_key_expr+self.setting.start, 'Started')
-        session.put(self.setting.base_key_expr+self.setting.health, 'Alive')
-        session.put(self.setting.base_key_expr+self.setting.status, 'Busy')
+        self.session.put(self.setting.base_key_expr+self.setting.start, 'Started')
+        self.session.put(self.setting.base_key_expr+self.setting.health, 'Alive')
+        self.session.put(self.setting.base_key_expr+self.setting.status, 'Busy')
+        self.publish_data()
     
     # publish the data on subscriber through publisher.
     def publish_data(self):
         self.publisher(self.setting.base_key_expr+self.setting.done, self.setting.iter)
-        #self.put(self.setting.status, 'Completed')
+        self.put(self.setting.status, 'Completed')
 
     # closes the server and undeclares the declared variables.
     def close_action_server(self):
         log.warning('Stopping Session.....')
-        self.put(self.setting.stop, 'Stopped')
-        self.put(self.setting.start, None)
-        self.put(self.setting.health, None)
-        self.put(self.setting.status, None)
+        self.session.put(self.setting.stop, 'Stopped')
+        self.session.put(self.setting.start, None)
+        self.session.put(self.setting.health, None)
+        self.session.put(self.setting.status, None)
         self.sub.undeclare()
-        queryable.undeclare()
-        pub.undeclare()
-        session.close()
+        self.queryable.undeclare()
+        self.pub.undeclare()
+        self.session.close()
 
 class State_machine:
-    #   States: Idle, Start, Busy, Stop, Error
-    #   Events: Start, Stop
-
-    # State: OnEntry, OnExit
-
-    #   Monitor: Status ---> Publishing udates on our own regular OR irregular frequency
 
     states = ['Idle', 'Start', 'Busy', 'Stop', 'Error']
     transitions = [['start', 'Idle','Start'],
@@ -161,8 +145,8 @@ class State_machine:
                     ['status', 'Stop', 'Idle'],
                     ['raise_error', '*', 'Error']]
 
-    def __init__(self, obj, setting):
-        self.obj = obj
+    def __init__(self, self.session, setting):
+        self.self.session = self.session
         self.machine = Machine(model=self, states=State_machine.states,
                                transitions=State_machine.transitions, on_exception='raise_error', initial='Idle')
         self.setting = setting
@@ -170,7 +154,7 @@ class State_machine:
     # trigger functions
     def OnEntry(self) -> bool:
         # monitor status continuously
-        if self.obj.get(self.setting.status) == 'Completed':
+        if self.self.session.get(self.setting.status) == 'Completed':
             print('hello')
             return True
         print('false')
@@ -178,20 +162,19 @@ class State_machine:
         
     def start(self):
         # startsession, make status busy, and publisher starts publishing on subscriber.
-        self.obj.setup_action_server()
-        self.obj.publish_data()
-        #if self.OnEntry:
-            #self.stop()
+        self.self.session.setup_action_server()
+        if self.OnEntry:
+            self.stop()
         
     def stop(self):
-        # stopssession, undeclares all variables, and print the status value.
+        # stops session, undeclares all variables, and print the status value.
         self.status()
-        self.obj.close_action_server()
+        self.self.session.close_action_server()
 
     def status(self):
         # make status busy until the stop triggers.
         #await asyncio.sleep(60)
-        print(self.obj.get('/status'))
+        print(self.self.session.get('/status'))
     
     def raise_error(self):
         print('error')
@@ -207,25 +190,19 @@ if __name__ == '__main__':
     # script goes here
     with open('action.yml') as file:
         try:
-            databaseConfig = yaml.safe_load(file)  
+            settingConfig = yaml.safe_load(file)  
         except yaml.YAMLError as exc:
             print(exc)
 
-    settings = ActionSettings(**databaseConfig)
+    settings = ActionSettings(**settingConfig)
+    # 1. Start the action server session = Session(settings)
     session = Session(settings)
-    # 1. Start the action sersession = Session(settings)
     # 2. wait for events
     events = State_machine(session, settings)
-    print(events.state)
     events.start()
-    print(events.state)
-    
 
-
-    '''
-        0. Remove the CLI realted things
-        1. Use a `action.yml` file to co-ordinate shared data [This is very similar to how ROS 2 works: You also declare data type]: PYDANTIC
-        2. Use a state chart library to define the action server systematically: PYTRANSITIONS
-        3. Encapsulate individual transitions or conditions into functions (Refere to Pytransitions)
-        4. Write functions that provide higher level abstractions
-    '''
+    c = '\0'
+    while c != 'q':
+        c = sys.stdin.read(1)
+        if c == '':
+            time.sleep(1)
