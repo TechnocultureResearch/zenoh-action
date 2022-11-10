@@ -1,0 +1,52 @@
+version: "3.9"
+services:
+
+  action-server:
+    image: zenoh-action-server
+    build: ../python/action-server
+    depends_on:
+      - log-forwarder
+      - local-zenoh-router
+    restart: unless-stopped
+
+  action-test:
+    image: zenoh-action-client
+    build: ../python/action-client
+    depends_on:
+      - log-forwarder
+      - local-zenoh-router
+    restart: unless-stopped
+
+  action-dashboard:
+    image: action-dashboard
+    build: ../dashboard
+    depends_on:
+      - action-server
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  log-forwarder:
+    image: fluent/fluent-bit:2.0
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+    ports:
+      - 24224:24224/tcp
+      - 24224:24224/udp
+    env_file:
+      - aws.env.sample
+    restart: unless-stopped
+
+  local-zenoh-router:
+     image: eclipse/zenoh:latest
+     ports:
+       - 7447:7447
+       - 8000:8000
+     volumes:
+       - ./zenoh_docker:/root/.zenoh
+     environment:
+       - RUST_LOG=debug
+     depends_on:
+       - log-forwarder
+     restart: unless-stopped
+
