@@ -1,5 +1,4 @@
-FROM eclipse/eclipse/zenoh:latest
+FROM eclipse/zenoh:latest
+COPY ./ /
 
-ADD ./ /
-
-CMD [ "python3", './zenoh-action-server.py' ]
+CMD [ "python3", './main.py' ]
