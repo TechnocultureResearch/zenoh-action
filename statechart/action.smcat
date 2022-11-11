@@ -1,0 +1,20 @@
+
+initial,
+idle,
+busy:   entry/  progress = 0
+        do/     increment progresss,
+done,
+aborted,
+awaiting_clearance,
+clearance_timeout;
+
+initial                 => idle ;
+idle                    => busy                 : TASK_START;
+busy                    => aborted              : TASK_ABORT;
+aborted                 => awaiting_clearance   : AWAIT_CLEARANCE;
+busy                    => done                 : TASK_DONE;
+done                    => awaiting_clearance   : AWAIT_CLEARANCE;
+awaiting_clearance      => idle                 : CLEAR_DONE;
+awaiting_clearance      => clearance_timeout    : TIMEOUT_CLEARANCE;
+clearance_timeout       => final;
+
