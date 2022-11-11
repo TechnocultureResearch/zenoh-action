@@ -5,6 +5,7 @@ import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import action from "./data/action.json";
+import main from "./python/action-server/main.py";
 
 const url = action.base_url;
 const key_expression = action.key_expression;
@@ -60,7 +61,7 @@ const HealthPlot = () => {
 }
 
 function App() {
-  return (
+    return(
     <div className="App">
         <header className="App-header">
             <h1>Action Dashboard</h1>
@@ -81,4 +82,10 @@ function App() {
   );
 }
 
+function myfunction_onload(){
+    $.ajax({
+        url: "./python/action-server/main.py",
+         context: document.body
+        })
+    }
 export default App;

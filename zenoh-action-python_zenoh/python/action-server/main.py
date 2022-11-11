@@ -10,6 +10,7 @@ from transitions import Machine
 from transitions.extensions.asyncio import AsyncMachine
 import asyncio
 import yaml
+import sys
 log = logging.getLogger(__name__)
 
 # describe settings for parsing values.
@@ -52,7 +53,7 @@ class Handlers():
                 query.reply(sample)
 
     # for publishing the data on subscriber or can be said that the to take the feedback
-    def publisher(self, key,pub, iter):
+    def publisher(self, key, pub, iter):
         for idx in itertools.count() if iter is None else range(int(iter)):
             time.sleep(1)
             buf = (idx % 100) 
@@ -64,10 +65,10 @@ class Session(Handlers):
     # creates self.session and perform self.session related tasks. Takes an object of settings.
     def __init__(self, settings):
         self.setting = settings
-        #self.session = None
-        #self.sub = None
-        #pub = None
-        #queryable = None
+        self.session = None
+        self.sub = None
+        self.pub = None
+        self.queryable = None
 
     # configures the zenoh configuration from settings variables and returns a configuration object.
     def configuration(self):
@@ -120,8 +121,8 @@ class Session(Handlers):
     
     # publish the data on subscriber through publisher.
     def publish_data(self):
-        self.publisher(self.setting.base_key_expr+self.setting.done, self.setting.iter)
-        self.put(self.setting.status, 'Completed')
+        self.publisher(self.setting.base_key_expr+self.setting.done, self.pub, self.setting.iter)
+        self.session.put(self.setting.base_key_expr+self.setting.status, 'Completed')
 
     # closes the server and undeclares the declared variables.
     def close_action_server(self):
@@ -145,16 +146,16 @@ class State_machine:
                     ['status', 'Stop', 'Idle'],
                     ['raise_error', '*', 'Error']]
 
-    def __init__(self, self.session, setting):
-        self.self.session = self.session
+    def __init__(self, session, setting):
+        self.session = session
         self.machine = Machine(model=self, states=State_machine.states,
-                               transitions=State_machine.transitions, on_exception='raise_error', initial='Idle')
+                               transitions=State_machine.transitions, on_exception='raise_error', initial='Idle', send_event=True)
         self.setting = setting
 
     # trigger functions
     def OnEntry(self) -> bool:
         # monitor status continuously
-        if self.self.session.get(self.setting.status) == 'Completed':
+        if self.session.get(self.setting.status) == 'Completed':
             print('hello')
             return True
         print('false')
@@ -162,29 +163,25 @@ class State_machine:
         
     def start(self):
         # startsession, make status busy, and publisher starts publishing on subscriber.
-        self.self.session.setup_action_server()
-        if self.OnEntry:
-            self.stop()
+        self.session.setup_action_server()
+        #if self.OnEntry:
+            #self.stop()
         
     def stop(self):
         # stops session, undeclares all variables, and print the status value.
         self.status()
-        self.self.session.close_action_server()
+        self.session.close_action_server()
 
-    def status(self):
+    async def status(self):
         # make status busy until the stop triggers.
-        #await asyncio.sleep(60)
-        print(self.self.session.get('/status'))
+        await asyncio.sleep(60)
+        print(self.session.get('/status'))
     
-    def raise_error(self):
-        print('error')
+    def raise_error(self, event):
+        print('Error arised: {}'.format(event.error))
+        del event.error
     
-    # State remains idle until start triggers
-    # When start triggers state will be busy and remains busy until the event stop triggers
-    # when stop triggers then the state will be Idle 
-    # start -> busy, condition 
-    # busy -> idle , condition
-
+    
 
 if __name__ == '__main__':
     # script goes here

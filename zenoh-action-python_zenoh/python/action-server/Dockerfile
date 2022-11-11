@@ -1,5 +1,4 @@
 FROM eclipse/zenoh:latest
-
-ADD ./ /
+COPY ./ /
 
 CMD [ "python3", './main.py' ]

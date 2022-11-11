@@ -1,6 +1,6 @@
 FROM eclipse/zenoh:latest
 
-ADD ./ /
+COPY ./ /
 
 ARG key="Genotyper/1/DNAsensor/1/start"
 
