@@ -8,7 +8,7 @@ import action from "./data/action.json";
 
 const actionsList = new Set(action.actions);
 const statesList = new Set(action.states);
-const endpointsList = new Set([...actionsList, ...statesList, "status"]);
+const endpointsList = new Set([...actionsList, ...statesList, "connect"]);
 
 const url = action.base_url;
 const key_expression = action.key_expression;
@@ -27,7 +27,7 @@ const ActionComponent = () => {
     let [actionStatus, setStatus] = useState("Unknown");
 
     useEffect(() => {
-        const sse = new EventSource(endpoint_url("status"));
+        const sse = new EventSource(endpoint_url("connect"));
 
         sse.addEventListener("PUT", (e) => {
             const value = JSON.parse(e.data).value;
