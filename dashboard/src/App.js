@@ -6,32 +6,39 @@ import 'react-toastify/dist/ReactToastify.css';
 
 import action from "./data/action.json";
 
+const actionsList = new Set(action.actions);
+const statesList = new Set(action.states);
+const endpointsList = new Set([...actionsList, ...statesList, "status"]);
+
 const url = action.base_url;
 const key_expression = action.key_expression;
 
 function endpoint_url(endpoint = "") {
-    return `${url}/${key_expression}/${endpoint.toLowerCase()}`;
+    if (endpointsList.has(endpoint)) {
+        return `${url}/${key_expression}/${endpoint}`;
+    } else if (endpoint === "") {
+        return `${url}/${key_expression}`;
+    } else {
+        throw TypeError(`Declaration for Endpoint(${endpoint}) is not present in the action.json file`);
+    }
 }
 
-const status_url = endpoint_url("status");
-
-const actionServerActions = new Set(action.actions.map(item => item.name));
-
-const HealthPlot = () => {
+const ActionComponent = () => {
     let [actionStatus, setStatus] = useState("Unknown");
 
     useEffect(() => {
-        const sse = new EventSource(status_url);
+        const sse = new EventSource(endpoint_url("status"));
 
         sse.addEventListener("PUT", (e) => {
             const value = JSON.parse(e.data).value;
-            console.log(value);
-            setStatus(value); 
+            if (value !== actionStatus) {
+                setStatus(value); 
+            }
         });
     });
 
     const postAction = async action => {
-        if (actionServerActions.has(action)) {
+        if (actionsList.has(action)) {
             try {
                 const response = await axios.post(endpoint_url(action));
                 toast.success(`Action dispatched: ${action}`);
@@ -41,7 +48,9 @@ const HealthPlot = () => {
                 throw error;
             } 
         } else {
-            toast.error(`Action(${action}) not supported.`);
+            const errmsg = `Action(${action}) not supported.`;
+            toast.error(errmsg);
+            throw errmsg;
         }
     };
 
@@ -73,10 +82,10 @@ function App() {
             transition={Flip}
             hideProgressBar={false}
             pauseOnFocusLoss={false}
-            newestOnTop={false}
+            newestOnTop={true}
             pauseOnHover={false}
         />
-        <HealthPlot />
+        <ActionComponent />
     </div>
   );
 }

@@ -12,6 +12,8 @@ services:
   action-test:
     image: zenoh-action-client
     build: ../python/action_client
+    container_name: action
+    build: ../rust
     depends_on:
       - log-forwarder
       - local-zenoh-router
@@ -19,6 +21,7 @@ services:
 
   action-dashboard:
     image: action-dashboard
+    container_name: dashboard
     build: ../dashboard
     depends_on:
       - action-server
@@ -28,6 +31,7 @@ services:
 
   log-forwarder:
     image: fluent/fluent-bit:2.0
+    container_name: fluentbit
     volumes:
       - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
     ports:
@@ -36,17 +40,34 @@ services:
     env_file:
       - aws.env
     restart: unless-stopped
+    depends_on:
+      - watchtower
 
   local-zenoh-router:
-     image: eclipse/zenoh:latest
-     ports:
-       - 7447:7447
-       - 8000:8000
-     volumes:
-       - ./zenoh_docker:/root/.zenoh
-     environment:
-       - RUST_LOG=debug
-     depends_on:
-       - log-forwarder
-     restart: unless-stopped
+    image: eclipse/zenoh:latest
+    container_name: router
+    ports:
+      - 7447:7447
+      - 8000:8000
+    volumes:
+      - ./zenoh_docker:/root/.zenoh
+    environment:
+      - RUST_LOG=debug
+    depends_on:
+      - log-forwarder
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    stdin_open: true
+    tty: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ="IST"
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_NO_RESTART=true
+      - WATCHTOWER_SCHEDULE=0 3 * * *
+    restart: unless-stopped
 
