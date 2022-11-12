@@ -103,7 +103,7 @@ class Session(Handlers):
         return value
 
     # starts the action server and declares subscriqueryable and publisher.
-    async def setup_action_server(self):
+    def setup_action_server(self):
         # initiate logging
         log.info('Starting Action Server....')
         zenoh.init_logger()
@@ -118,7 +118,6 @@ class Session(Handlers):
         self.session.put(self.setting.base_key_expr+self.setting.start, 'Started')
         self.session.put(self.setting.base_key_expr+self.setting.health, 'Alive')
         self.session.put(self.setting.base_key_expr+self.setting.status, 'Busy')
-        self.publish_data()
     
     # publish the data on subscriber through publisher.
     def publish_data(self):
@@ -126,8 +125,7 @@ class Session(Handlers):
         self.session.put(self.setting.base_key_expr+self.setting.status, 'Completed')
 
     # closes the server and undeclares the declared variables.
-    def close_action_server(self):
-        global store
+    def close_action_server(self) -> bool:
         log.warning('Stopping Session.....')
         self.session.put(self.setting.base_key_expr+self.setting.stop, 'Stopped')
         self.session.put(self.setting.base_key_expr+self.setting.start, None)
@@ -137,8 +135,8 @@ class Session(Handlers):
         self.queryable.undeclare()
         self.pub.undeclare()
         self.session.close()
-        store.clear()
         log.info('Session closed.')
+        return True
 
 class State_machine:
 
@@ -165,8 +163,7 @@ class State_machine:
         
     async def start(self):
         # startsession, make status busy, and publisher starts publishing on subscriber.
-        await self.session.setup_action_server()
-        await self.status()
+        self.session.publish_data()
         if self.OnEntry:
             await self.stop()
         
@@ -197,10 +194,15 @@ if __name__ == '__main__':
     settings = ActionSettings(**settingConfig)
     # 1. Start the action server session = Session(settings)
     session = Session(settings)
+    session.setup_action_server()
     # 2. wait for events
     events = State_machine(session, settings)
+
     try:
-        if requests.get('http://localhost:3000/Genotyper/1/DNASensor/1/start'):
-            asyncio.run(events.start()) #async task 
-    except requests.exceptions.HTTPError as e:
-        print('error found', e)
+        if session.get(settings.start) == 'Started':
+           asyncio.run(events.start()) #async task 
+        elif session.get(settings.stop) =='Stopped':
+            session.close_action_server()        
+    except Exception as e:
+        print('Error: {e}')
+    

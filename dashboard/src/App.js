@@ -8,7 +8,7 @@ import action from "./data/action.json";
 
 const actionsList = new Set(action.actions);
 const statesList = new Set(action.states);
-const endpointsList = new Set([...actionsList, ...statesList, "connect"]);
+const endpointsList = new Set([...actionsList, ...statesList, "listen"]);
 
 const url = action.base_url;
 const key_expression = action.key_expression;
@@ -27,7 +27,7 @@ const ActionComponent = () => {
     let [actionStatus, setStatus] = useState("Unknown");
 
     useEffect(() => {
-        const sse = new EventSource(endpoint_url("connect"));
+        const sse = new EventSource(endpoint_url("listen"));
 
         sse.addEventListener("PUT", (e) => {
             const value = JSON.parse(e.data).value;
@@ -40,7 +40,7 @@ const ActionComponent = () => {
     const postAction = async action => {
         if (actionsList.has(action)) {
             try {
-                const response = await axios.post(endpoint_url(action));
+                const response = await axios.post(endpoint_url(action)+'/');
                 toast.success(`Action dispatched: ${action}`);
                 return response.data;
             } catch (error) {

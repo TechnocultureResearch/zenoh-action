@@ -12,5 +12,5 @@ config:
 listen: 
 connect: 
 mode: peer
-declare_key_expr: Genotyper/1/DNASensor/**
+declare_key_expr: Genotyper/1/DNASensor/1/**
 
