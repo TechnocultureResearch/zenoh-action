@@ -3,7 +3,7 @@ services:
 
   action-server:
     image: zenoh-action-server
-    build: ../rust
+    build: ../python/action-server
     depends_on:
       - local-zenoh-router
     restart: unless-stopped

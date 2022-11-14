@@ -1,4 +1,5 @@
 FROM eclipse/zenoh:latest
-COPY ./ /
 
-CMD [ "python3", './main.py' ]
+COPY . .
+
+CMD [ "python3", "./main.py" ]
