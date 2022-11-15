@@ -3,11 +3,9 @@ import json
 import itertools
 import zenoh
 from zenoh import Reliability, SampleKind, Query, Sample, KeyExpr, QueryTarget, Value
-from typing import Optional
 from pydantic import BaseModel
 import logging
 from transitions import Machine
-from transitions.extensions.asyncio import AsyncMachine
 import asyncio
 import yaml
 import sys
@@ -115,7 +113,7 @@ class Session(Handlers):
         
         self.pub = self.session.declare_publisher(self.setting.base_key_expr+self.setting.done)
         
-        self.session.put(self.setting.base_key_expr+self.setting.start, 'Started')
+        #self.session.put(self.setting.base_key_expr+self.setting.start, 'Started')
         self.session.put(self.setting.base_key_expr+self.setting.health, 'Alive')
         self.session.put(self.setting.base_key_expr+self.setting.status, 'Busy')
     
@@ -123,6 +121,12 @@ class Session(Handlers):
     def publish_data(self):
         self.publisher(self.setting.base_key_expr+self.setting.done, self.pub, self.setting.iter)
         self.session.put(self.setting.base_key_expr+self.setting.status, 'Completed')
+
+    def session_get(self, expr):
+        result = self.session.get(self.setting.base_key_expr+expr, zenoh.ListCollector(), target=self.target())
+        if result() == []:
+            return True
+        return False
 
     # closes the server and undeclares the declared variables.
     def close_action_server(self) -> bool:
@@ -195,14 +199,12 @@ if __name__ == '__main__':
     # 1. Start the action server session = Session(settings)
     session = Session(settings)
     session.setup_action_server()
+
     # 2. wait for events
     events = State_machine(session, settings)
 
-    try:
-        if session.get(settings.start) == 'Started':
-           asyncio.run(events.start()) #async task 
-        elif session.get(settings.stop) =='Stopped':
-            session.close_action_server()        
-    except Exception as e:
-        print('Error: {e}')
+    if session.session_get(settings.start):
+        asyncio.run(events.start()) #async task 
+    elif session.session_get(settings.stop):
+        session.close_action_server()        
     
