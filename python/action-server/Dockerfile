@@ -13,4 +13,4 @@ COPY . .
 #    maturin build --release && \
 #    pip install ./target/wheels/
 
-CMD ["python3", "./main.py"]
+CMD ["python3", "./main.py", "-e", "tcp/localhost:7447"]
