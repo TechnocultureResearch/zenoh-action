@@ -4,6 +4,9 @@ services:
   action-server:
     image: zenoh-action-server
     build: ../python/action-server
+    ports:
+      - "7447:7447"
+      - "8000:8000"
     restart: unless-stopped
 
   action-dashboard:

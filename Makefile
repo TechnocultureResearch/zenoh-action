@@ -7,6 +7,8 @@ STANDALONE:=./${COMPOSE_DIR}/standalone.yml
 ACTION_FILE:=action.json
 DASHBOARD_DATA:=dashboard/src/data
 
+all: py
+
 min: build_min
 	docker compose -f ${MINIMAL} up
 

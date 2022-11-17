@@ -8,8 +8,6 @@ import logging
 from transitions import Machine
 import asyncio
 import yaml
-import sys
-import requests
 log = logging.getLogger(__name__)
 
 # describe settings for parsing values.
@@ -145,13 +143,16 @@ class Session(Handlers):
 class State_machine:
 
     states = ['Idle', 'Start', 'Busy', 'Stop', 'Error']
-    transitions = [['start', 'Idle','Start'],
-                    ['status', 'Start', 'Busy'],
-                    ['status', 'Busy', 'Busy'],
+    transitions = [['start', 'Idle','Busy'],
                     ['stop', 'Busy', 'Stop'],
-                    ['status', 'Stop', 'Idle'],
                     ['raise_error', '*', 'Error']]
 
+
+    '''
+    start -> start doing this time taking work (takes 30 min)
+        ---> task is done -> complete
+    complete
+'''
     def __init__(self, session, setting):
         self.session = session
         self.machine = Machine(model=self, states=State_machine.states,
@@ -166,10 +167,12 @@ class State_machine:
         return False
         
     async def start(self):
-        # startsession, make status busy, and publisher starts publishing on subscriber.
-        self.session.publish_data()
+        # startsession, make status busy, and publisher starts publishing on subscriber.        
+
         if self.OnEntry:
+            # Runs on the first time we enter this state
             await self.stop()
+            #await self.complete()
         
     async def stop(self):
         # stops session, undeclares all variables, and print the status value.
@@ -188,14 +191,15 @@ class State_machine:
     
 
 if __name__ == '__main__':
-    # script goes here
+
     with open('action.yml') as file:
         try:
             settingConfig = yaml.safe_load(file)  
-        except yaml.YAMLError as exc:
-            print(exc)
+        except yaml.YAMLError as err:
+            print(err)
 
     settings = ActionSettings(**settingConfig)
+
     # 1. Start the action server session = Session(settings)
     session = Session(settings)
     session.setup_action_server()

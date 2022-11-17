@@ -37,10 +37,14 @@ const ActionComponent = () => {
         });
     });
 
-    const postAction = async action => {
+    const postAction = async (action, payload = '') => {
         if (actionsList.has(action)) {
             try {
-                const response = await axios.post(endpoint_url(action)+'/');
+                const response = await axios.post(endpoint_url(action), payload, {
+                    headers: {
+                        'Content-Type': 'application/text'
+                    }
+                });
                 toast.success(`Action dispatched: ${action}`);
                 return response.data;
             } catch (error) {
@@ -60,8 +64,8 @@ const ActionComponent = () => {
             <p>{actionStatus}</p>
 
             <h3>Action Buttons</h3>
-            <button onClick={() => postAction("start")}>Start</button>
-            <button onClick={() => postAction("stop")}>Stop</button>
+            <button onClick={() => postAction("start", "started")}>Start</button>
+            <button onClick={() => postAction("stop", "stopped")}>Stop</button>
 
             <button onClick={() => postAction("hello")}>Hello</button>
         </div>
