@@ -5,9 +5,9 @@ import zenoh
 from zenoh import Reliability, SampleKind, Query, Sample, KeyExpr, QueryTarget, Value
 from pydantic import BaseModel
 import logging
-from transitions import Machine
 import asyncio
 import yaml
+from .state_machine import State_machine
 log = logging.getLogger(__name__)
 
 # describe settings for parsing values.
@@ -140,55 +140,6 @@ class Session(Handlers):
         log.info('Session closed.')
         return True
 
-class State_machine:
-
-    states = ['Idle', 'Start', 'Busy', 'Stop', 'Error']
-    transitions = [['start', 'Idle','Busy'],
-                    ['stop', 'Busy', 'Stop'],
-                    ['raise_error', '*', 'Error']]
-
-
-    '''
-    start -> start doing this time taking work (takes 30 min)
-        ---> task is done -> complete
-    complete
-'''
-    def __init__(self, session, setting):
-        self.session = session
-        self.machine = Machine(model=self, states=State_machine.states,
-                               transitions=State_machine.transitions, on_exception='raise_error', initial='Idle', send_event=True)
-        self.setting = setting
-
-    # trigger functions
-    def OnEntry(self) -> bool:
-        # monitor status continuously
-        if self.session.get(self.setting.status) == 'Completed':
-            return True
-        return False
-        
-    async def start(self):
-        # startsession, make status busy, and publisher starts publishing on subscriber.        
-
-        if self.OnEntry:
-            # Runs on the first time we enter this state
-            await self.stop()
-            #await self.complete()
-        
-    async def stop(self):
-        # stops session, undeclares all variables, and print the status value.
-        await self.status()
-        self.session.close_action_server()
-
-    async def status(self):
-        # make status busy until the stop triggers.
-        await asyncio.sleep(10)
-        print(self.session.get('/status'))
-    
-    def raise_error(self, event):
-        print('Error arised: {}'.format(event.error))
-        del event.error
-    
-    
 
 if __name__ == '__main__':
 
