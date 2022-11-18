@@ -1,20 +1,34 @@
 
 initial,
-idle,
-busy:   entry/  progress = 0
-        do/     increment progresss,
-done,
-aborted,
+broken_without_holdings,
 awaiting_clearance,
-clearance_timeout;
+healthy {
+    idle,
+    busy:   entry/  progress = 0,
+    done,
+    aborted,
+    awaiting_clearance,
+    clearance_timeout;
 
-initial                 => idle ;
-idle                    => busy                 : TASK_START;
-busy                    => aborted              : TASK_ABORT;
-aborted                 => awaiting_clearance   : AWAIT_CLEARANCE;
-busy                    => done                 : TASK_DONE;
-done                    => awaiting_clearance   : AWAIT_CLEARANCE;
-awaiting_clearance      => idle                 : CLEAR_DONE;
-awaiting_clearance      => clearance_timeout    : TIMEOUT_CLEARANCE;
-clearance_timeout       => final;
+    initial => idle;
+    idle                    => busy                 : TASK_START;
+    busy                    => aborted              : TASK_ABORT;
+    aborted                 => unhealthy            : AWAIT_CLEARANCE;
+    busy                    => done                 : TASK_DONE;
+    done                    => awaiting_clearance   : AWAIT_CLEARANCE;
+    awaiting_clearance      => idle                 : CLEAR_DONE;
+    awaiting_clearance      => clearance_timeout    : TIMEOUT_CLEARANCE;
+    clearance_timeout       => unhealthy;
+},
+unhealthy {
+    awaiting_clearance_err,
+    broken_with_holdings,
+    broken_without_holdings;
 
+    awaiting_clearance_err  => cleared : CLEAR_DONE;
+    awaiting_clearance_err  => broken_with_holdings : TIMEOUT_CLEARANCE_LONG;
+    cleared                     => broken_without_holdings;
+};
+
+    broken_with_holdings        => final;
+    broken_without_holdings     => final;
