@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import logging
 import asyncio
 import yaml
-from .state_machine import State_machine
+import state_machine
 log = logging.getLogger(__name__)
 
 # describe settings for parsing values.
@@ -111,7 +111,7 @@ class Session(Handlers):
         
         self.pub = self.session.declare_publisher(self.setting.base_key_expr+self.setting.done)
         
-        #self.session.put(self.setting.base_key_expr+self.setting.start, 'Started')
+        self.session.put(self.setting.base_key_expr+self.setting.start, 'None')
         self.session.put(self.setting.base_key_expr+self.setting.health, 'Alive')
         self.session.put(self.setting.base_key_expr+self.setting.status, 'Busy')
     
@@ -156,10 +156,7 @@ if __name__ == '__main__':
     session.setup_action_server()
 
     # 2. wait for events
-    events = State_machine(session, settings)
-
-    if session.session_get(settings.start):
-        asyncio.run(events.start()) #async task 
-    elif session.session_get(settings.stop):
-        session.close_action_server()        
+    events = state_machine.StateMachine(session)
+    asyncio.run(events.idle())
+     
     
