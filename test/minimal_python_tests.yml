@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+
+  action-tests:
+    image: zenoh-action-server
+    build: ../python/action-server/url
+    depends_on:
+      - local-zenoh-router
+    restart: unless-stopped
+
+  local-zenoh-router:
+     image: eclipse/zenoh:latest
+     ports:
+       - 7447:7447
+       - 8000:8000
+     volumes:
+       - ./config:/root/.zenoh
+     environment:
+       - RUST_LOG=debug
+     command: -c /root/.zenoh/local_router.json
+     restart: unless-stopped
+

@@ -1,5 +1,5 @@
 {
-  "name":"StateMachine",
+  "name": "StateMachine",
   "states": [
             {"name":"idle"},
             {"name":"busy"},
@@ -14,7 +14,7 @@
             {"name":"dead"}
           ],
   "transitions": [
-            {"trigger":"start", "source":"idle", "dest":"busy", "conditions":"done", "unless":"abort"},
+            {"trigger":"start", "source":"idle", "dest":"busy"},
             {"trigger":"abort", "source":"busy", "dest":"aborted"},
             {"trigger":"done", "source":"busy", "dest":"done"},
             {"trigger":"awaiting_clearance", "source":"done", "dest":"awaiting_clearance"},

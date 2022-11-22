@@ -1,5 +1,6 @@
 #from transitions.extensions import GraphMachine
 #from functools import partial
+from transitions.extensions.markup import MarkupMachine
 from transitions import Machine
 import logging
 import asyncio
@@ -13,9 +14,9 @@ class StateMachine:
         self.config = json.loads('statechart.json')
         self.config['model'] = self
         self.machine = Machine(**self.config)
+        self.markup = MarkupMachine(**self.config)
 
     async def idle(self):
-        value = ''
         log.info('I am idle. Waiting for Command.')
         try:
             await asyncio.wait_for(self.wait_for_start(), timeout=1800)
@@ -89,6 +90,9 @@ class StateMachine:
             print('Machine is broken. Please switched it off.')
         if self.session.get('/broken_without_holdings') == 'True':
             print('Machine is halted but no harm. Please switched it off.')
+
+    def json_create(self):
+        return json.dumps(self.markup.markup, indent=2)
 '''
 if __name__ == '__main__':
     unhealthystatemachine =UnhealthyStateMachine()
