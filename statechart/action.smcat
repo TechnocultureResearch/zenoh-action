@@ -6,18 +6,20 @@ healthy {
     idle,
     busy:   entry/  progress = 0,
     done,
-    aborted,
+    stopped,
     awaiting_clearance,
     clearance_timeout;
 
     initial => idle;
     idle                    => busy                 : TASK_START;
-    busy                    => aborted              : TASK_ABORT;
-    aborted                 => unhealthy            : AWAIT_CLEARANCE;
-    busy                    => done                 : TASK_DONE;
+    busy                    => stopped              : TASK_STOP;
+    busy                    => failed               : INTERNAL_TASK_FAIL;
+    failed                  => unhealthy;
+    stopped                 => awaiting_clearance   : AWAIT_CLEARANCE;
+    busy                    => done                 : INTERNAL_TASK_DONE;
     done                    => awaiting_clearance   : AWAIT_CLEARANCE;
     awaiting_clearance      => idle                 : CLEAR_DONE;
-    awaiting_clearance      => clearance_timeout    : TIMEOUT_CLEARANCE;
+    awaiting_clearance      => clearance_timeout    : INTERNAL_TIMEOUT_CLEARANCE;
     clearance_timeout       => unhealthy;
 },
 unhealthy {
@@ -26,7 +28,7 @@ unhealthy {
     broken_without_holdings;
 
     awaiting_clearance_err  => cleared : CLEAR_DONE;
-    awaiting_clearance_err  => broken_with_holdings : TIMEOUT_CLEARANCE_LONG;
+    awaiting_clearance_err  => broken_with_holdings : INTERNAL_TIMEOUT_CLEARANCE;
     cleared                     => broken_without_holdings;
 };
 
