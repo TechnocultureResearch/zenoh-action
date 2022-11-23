@@ -58,6 +58,7 @@ class StateMachine(HierarchicalMachine):
         return statechart
 
     def state(self):
+        self.session.put("Genotyper/1/DNAsensor/1/trigger", self.state)
         return self.state
 
     def trigger(self, trigger_method):
