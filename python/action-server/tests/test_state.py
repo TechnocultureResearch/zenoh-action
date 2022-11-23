@@ -1,3 +1,4 @@
+from transitions.extensions.markup import MarkupMachine
 import json
 import pytest
 import requests
@@ -18,6 +19,6 @@ def test_statechart():
     session = main.Session(settings)
     model = state_machine.StateMachine(session)
     test_json = json.loads(model.json_create())
-    response = requests.post(url, test_json['statechart'])
+    response = requests.post(url, test_json['state'])
     assert response.status_code == 201
 
