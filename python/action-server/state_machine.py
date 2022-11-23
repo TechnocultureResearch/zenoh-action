@@ -65,7 +65,4 @@ class StateMachine(HierarchicalMachine):
         try:
             self.session.put("Genotyper/1/DNAsensor/1/trigger", {'timestamp':time.time(), 'triggered':trigger_method})
         except Exception as e:
-            if e is MachineError:
-                print("State is recognised but can't trigger.")
-            else:
-                print('State is not recognised')
+            print(e)
