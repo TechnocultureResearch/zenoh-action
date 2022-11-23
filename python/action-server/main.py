@@ -119,12 +119,10 @@ class Session(Handlers):
     def publish_data(self):
         self.publisher(self.setting.base_key_expr+self.setting.done, self.pub, self.setting.iter)
         self.session.put(self.setting.base_key_expr+self.setting.status, 'Completed')
+        self.clearance()
 
-    def session_get(self, expr):
-        result = self.session.get(self.setting.base_key_expr+expr, zenoh.ListCollector(), target=self.target())
-        if result() == []:
-            return True
-        return False
+    def clearance(self):
+        self.session.put(self.setting.base_key_expr+'/clear', 'Cleared')
 
     # closes the server and undeclares the declared variables.
     def close_action_server(self) -> bool:
