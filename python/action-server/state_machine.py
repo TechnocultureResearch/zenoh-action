@@ -1,144 +1,70 @@
 #from transitions.extensions import GraphMachine
 #from functools import partial
 from transitions.extensions.markup import MarkupMachine
-from transitions import Machine
+from transitions.extensions.factory import HierarchicalMachine
 import logging
-import asyncio
 import json
 import time
 
 log = logging.getLogger(__name__)
 
-class StateMachine:
+QUEUED = False
 
-    def __init__(self, session):
-        self.session = session
-        with open('statechart.json', 'r') as j:
-            self.config = json.loads(j.read())
-        self.config['model'] = self
-        self.machine = Machine(**self.config)
-        self.markup = MarkupMachine(**self.config)
-        self.trigger = list()
+class Healty(HierarchicalMachine):
+    def __init__(self):
+        states = [{"name":"busy", 'on_enter':'start'},
+                    {"name":"aborted",'on_enter':'abort'},
+                    {"name":"done",'on_enter':'done'},
+                    {"name":"clearance_timeout",'on_enter':'clearance_timeout'},
+                    {"name":"awaiting_clearance",'on_enter':'awaiting_clearance'}]
 
-    def log_timestamp(self, timest, triggered):
-        timestamp = {}
-        timestamp['timestamp'] = timest
-        timestamp['triggered'] = triggered
-        return timestamp
+        transitions = [{"trigger":"abort", "source":"busy", "dest":"aborted"},
+                        {"trigger":"done", "source":"busy", "dest":"done"},
+                        {"trigger":"awaiting_clearance", "source":"done", "dest":"awaiting_clearance"},
+                        {"trigger":"clearance_timeout", "source":"awaiting_clearance", "dest":"clearance_timeout"},
+                        {"trigger":"idle", "source":"awaiting_clearance", "dest":"idle"}]
+        super().__init__(states=states, transitions=transitions, initial="idle", queued=QUEUED)
 
-    async def idle(self):
-        log.info('I am idle. Waiting for Command.')
-        self.trigger.append(self.log_timestamp(time.time(), 'idle'))
+class Unhealthy(HierarchicalMachine):
+    def __init__(self):
+        states = [{"name":"awaiting_clearance_err", 'on_enter':'awaiting_clearance_err'},
+                    {"name":"cleared", 'on_enter':'cleared'},
+                    {"name":"broken_with_holdings", 'on_enter':'broken_with_holdings'},
+                    {"name":"broken_without_holdings", 'on_enter':'broken_without_holdings'},
+                    {"name":"dead", 'on_enter':'dead'}
+                    ]
+        transitions = [{"trigger":"awaiting_clearance_err", "source":"aborted", "dest":"awaiting_clearance_err"},
+                        {"trigger":"awaiting_clearance_err", "source":"clearance_timeout", "dest":"awaiting_clearance_err"},
+                        {"trigger":"cleared", "source":"awaiting_clearance_err", "dest":"cleared"},
+                        {"trigger":"broken_without_holdings", "source":"cleared", "dest":"broken_without_holdings"},
+                        {"trigger":"broken_with_holdings", "source":"awaiting_clearance_err", "dest":"broken_with_holdings"},
+                        {"trigger":"dead", "source":"broken_with_holdings", "dest":"dead"},
+                        {"trigger":"dead", "source":"broken_without_holdings", "dest":"dead"}]
+        super().__init__(states=states, transitions=transitions, initial="idle", queued=QUEUED)
+
+class StateMachine(HierarchicalMachine):
+    def __init__(self, session: Session):
+        self.healthy = Healty()
+        self.unhealthy = Unhealthy()
+        self.session=session
+        states = ["idle", {"name": "statemachine", "children": [self.healthy, self.unhealthy]}]
+        transitions = [{"start", "idle", "healthy"}, 
+                        {"abort", "busy", "unhealthy"}]
+        super().__init__(states=states, transitions = transitions, initial="idle", queued=QUEUED)
+        self.markup = MarkupMachine(model=self  , states=states, transitions=transitions, initial='idle')
+    
+    def statechart(self):
+        statechart = json.dumps(self.markup.markup)
+        return statechart
+
+    def state(self):
+        return self.state
+
+    def trigger(self, trigger_method):
         try:
-            await asyncio.wait_for(self.wait_for_start(), timeout=1800)
-            await self.start()
-        except asyncio.TimeoutError:
-            print('Timeout No command found.')
-
-    async def wait_for_start(self):
-        while True:
-            if self.session.get('/start') == 'Started':
-                break
+            self.session.put("Genotyper/1/DNAsensor/1/trigger", {'timestamp':time.time(), 'triggered':trigger_method})
+        except Exception as e:
+            if e is MachineError:
+                print("State is recognised but can't trigger.")
             else:
-                await asyncio.sleep(10)
-
-    async def start(self):
-        print('start')
-        self.trigger.append(self.log_timestamp(time.time(), 'start'))
-        self.session.publish_data()
-        await self.progress()
-        if self.session.get('/status') == 'Completed':
-            print('done')
-            await self.done()
-
-    async def progress(self):
-        self.trigger.append(self.log_timestamp(time.time(), 'progress'))
-        print('progress')
-        await asyncio.sleep(10)
-        print(self.session.get('/done'))
-
-    async def abort(self):
-        print('abort')
-        self.trigger.append(self.log_timestamp(time.time(), 'abort'))
-        self.session.stop_action_server()
-        await self.awaiting_clearance_err()
-
-    async def done(self):
-        print('done')
-        await self.awaiting_clearance()
-
-    async def awaiting_clearance(self):
-        self.trigger.append(self.log_timestamp(time.time(), 'awaiting_clearance'))
-        try:
-            await asyncio.wait_for(self.wait_for_clearance(), timeout=180)
-            await self.idle()
-        except asyncio.TimeoutError:
-            await self.clearance_timeout()
-        
-    async def wait_for_clearance(self):
-        while True:
-            if self.session.get('/clear') == 'Cleared':
-                break
-            asyncio.sleep(10)
-
-    async def clearance_timeout(self):
-        self.trigger.append(self.log_timestamp(time.time(), 'clearance_timeout'))
-        log.info('Timeout Clearance')
-        await self.awaiting_clearance_err()
-
-    async def awaiting_clearance_err(self):
-        self.trigger.append(self.log_timestamp(time.time(), 'awaiting_clearance_err'))
-        try:
-            await asyncio.wait_for(self.wait_for_clearance(), timeout=180)
-            await self.cleared()
-        except asyncio.TimeoutError:
-            self.broken_With_holdings()
-        
-    def cleared(self):
-        log.info('Awaiting clearance cleared')
-        self.trigger.append(self.log_timestamp(time.time(), 'cleared'))
-        self.broken_without_holdings()
-
-    def broken_With_holdings(self):
-        log.info('Broken with holdings')
-        self.trigger.append(self.log_timestamp(time.time(), 'broken_with_holdings'))
-        self.session.put('/broken_without_holdings', 'True')
-        self.dead()
-
-    def broken_without_holdings(self):
-        log.info('Broken with holdings')
-        self.trigger.append(self.log_timestamp(time.time(), 'broken_without_holdings'))
-        self.session.put('/broken_with_holdings', 'True')
-        self.dead()
-
-    def dead(self):
-        self.trigger.append(self.log_timestamp(time.time(), 'dead'))
-        if self.session.get('/broken_with_holdings') == 'True':
-            print('Machine is broken. Please switched it off.')
-        if self.session.get('/broken_without_holdings') == 'True':
-            print('Machine is halted but no harm. Please switched it off.')
-
-    def json_create(self):
-        statechart = self.markup.markup
-        state = self.config['states']
-        trigger = self.trigger
-        url = {'statechart':statechart, 'state':state, 'trigger':trigger}
-        return json.dumps(url, indent=2)
-
-
-'''
-if __name__ == '__main__':
-    unhealthystatemachine =UnhealthyStateMachine()
-    states = unhealthystatemachine.ustates + unhealthystatemachine.states
-    transitions = unhealthystatemachine.utransitions + unhealthystatemachine.transitions
-
-    model = StateMachine()
-    machine = GraphMachine(model=model, states=states,
-                        transitions=transitions,
-                        initial='idle', show_conditions=True)
-
-    model.get_graph().draw('my_state_diagram.png', prog='dot')
-
-    statemachine = Machine(model=model, states=states, transitions=transitions, initial='idle')
-    asyncio.run(model.idle())
-'''
+                print('State is not recognised')
