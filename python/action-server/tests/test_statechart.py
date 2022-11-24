@@ -1,11 +1,8 @@
 import json
-import pytest
-import requests
 import yaml
-import state_machine
+from state_machine import StateMachine
 import main
-
-url = 'https://localhost:7447'
+import settings
 
 def test_statechart():
     with open('action.yml') as file:
@@ -14,10 +11,14 @@ def test_statechart():
         except yaml.YAMLError as err:
             print(err)
 
-    settings = main.ActionSettings(**settingConfig)
-    session = main.Session(settings)
-    model = state_machine.StateMachine(session)
-    test_json = json.loads(model.json_create())
-    response = requests.post(url, test_json['statechart'])
-    assert response.status_code == 201
+    setting = settings.ActionSettings(**settingConfig)
+    session_obj = main.Session(setting)
+    session_obj.setup_action_server()
+    model = StateMachine()
+    model.init_session(session_obj)
+    model.statechart()
+    value = session_obj.get('/statechart')
+    assert json.loads(value) == model.markup
+
+test_statechart()
 

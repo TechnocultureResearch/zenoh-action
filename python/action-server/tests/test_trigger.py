@@ -1,12 +1,7 @@
-from transitions.extensions.markup import MarkupMachine
 import json
-import pytest
-import requests
 import yaml
-import state_machine
+from state_machine import StateMachine
 import main
-
-url = 'https://localhost:7447'
 
 def test_statechart():
     with open('action.yml') as file:
@@ -16,9 +11,12 @@ def test_statechart():
             print(err)
 
     settings = main.ActionSettings(**settingConfig)
-    session = main.Session(settings)
-    model = state_machine.StateMachine(session)
-    test_json = json.loads(model.json_create())
-    response = requests.post(url, test_json['trigger'])
-    assert response.status_code == 201
+    session = main.Session(settings, c)
+    session.setup_action_server()
+    model = StateMachine()
+    model.init_session(session)
+    value = session.get('/trigger/start')
+    print(value)
+
+test_statechart()
 

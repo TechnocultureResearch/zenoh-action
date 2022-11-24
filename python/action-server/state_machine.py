@@ -1,36 +1,24 @@
-from transitions.extensions import GraphMachine
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
-from transitions import Machine
-import logging
 import json
-import time
-from IPython.display import Image, display, display_png
-
-log = logging.getLogger(__name__)
 
 QUEUED = True
+base_key_expr = 'Genotyper/1/DNAsesnsor/1'
 
 class Session_state:
-    def init_session(self, session):
+    def __init__(self, session):
         self.session=session
 
     def statechart(self):
         statechart = json.dumps(self.markup, indent=3)
         self.session.put("/statechart", statechart)
+        return True
 
     def state_(self):
         self.session.put("/state", self.state)
         
 
-    def trigger(self, trigger_method):
-        try:
-            self.session.put("/trigger/"+trigger_method, {'timestamp':time.time(), 'triggered':trigger_method})
-        except Exception as e:
-            self.session.put("/error/"+trigger_method, {'timestamp':time.time(), 'Error': e})
-
-
-class Unhealthy(HierarchicalMachine, Session_state):
+class Unhealthy(HierarchicalMachine):
     def __init__(self):
         states = [{"name":'aborted', "on_enter":["aborted"]},
                     {"name":"awaitingclearanceerr", 'on_enter':['cleared']},
@@ -48,10 +36,10 @@ class Unhealthy(HierarchicalMachine, Session_state):
                         {"trigger":"dead", "source":"brokenwithoutholdings", "dest":"dead"}]
         super().__init__(states=states, transitions=transitions, initial="awaitingclearanceerr", queued=QUEUED)
 
-class Healthy(HierarchicalMachine, Session_state):
+class Healthy(HierarchicalMachine):
     def __init__(self):
         aborted = Unhealthy()
-        states = [{"name":'idle', 'on_enter':[self.state_(), 'start']},
+        states = [{"name":'idle', 'on_enter':['start']},
                     {"name":"busy"},
                     {"name":"aborted", "children": aborted},
                     {"name":"done"},
@@ -65,6 +53,7 @@ class Healthy(HierarchicalMachine, Session_state):
                         {"trigger":"clearancetimeout", "source":"awaitingclearance", "dest":"clearancetimeout"},
                         {"trigger":"idle", "source":"awaiting_clearance", "dest":"idle"}]
         super().__init__(states=states, transitions=transitions, initial="idle", queued=QUEUED)
+
 
 
 class StateMachine(HierarchicalMachine, MarkupMachine, Session_state):

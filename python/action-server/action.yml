@@ -1,8 +1,5 @@
 base_key_expr: Genotyper/1/DNASensor/1
-iter: 10
-target: ALL
 config: 
 listen: 
 connect: 
 mode: peer
-declare_key_expr: Genotyper/1/DNASensor/1/**
