@@ -16,22 +16,15 @@ class ActionSettings(BaseModel):
     connect: str = None
     listen: str = None
     config: str = None
-    start: str
-    stop: str
-    status: str
-    health: str
-    busy: str
-    done: str
     base_key_expr: str
     iter: int
     target: str
-    base_key_expr: str
     declare_key_expr: str
 
 store = {}
 
 class Handlers():
-    # handler functions which are going to ussession declarables.
+    # handler functions which are going to use session declarables.
     # listens all the data which publisher puts on reciever.
     def listener(self, sample: Sample):
         print(">> [Subscriber] Received {} ('{}': '{}')"
@@ -106,38 +99,40 @@ class Session(Handlers):
         self.session = zenoh.open(self.configuration())
         
         self.sub = self.session.declare_subscriber(self.setting.declare_key_expr, self.listener, reliability=Reliability.RELIABLE())
-        
+
         self.queryable = self.session.declare_queryable(self.setting.declare_key_expr, self.query_handler)
         
-        self.pub = self.session.declare_publisher(self.setting.base_key_expr+self.setting.done)
-        
+        self.pub = self.session.declare_publisher(self.setting.base_key_expr+'/done')
+        '''
         self.session.put(self.setting.base_key_expr+self.setting.start, 'None')
         self.session.put(self.setting.base_key_expr+self.setting.health, 'Alive')
-        self.session.put(self.setting.base_key_expr+self.setting.status, 'Busy')
+        self.session.put(self.setting.base_key_expr+self.setting.status, 'Busy')'''
     
     # publish the data on subscriber through publisher.
     def publish_data(self):
-        self.publisher(self.setting.base_key_expr+self.setting.done, self.pub, self.setting.iter)
-        self.session.put(self.setting.base_key_expr+self.setting.status, 'Completed')
-        self.clearance()
-
+        self.publisher(self.setting.base_key_expr+'/done', self.pub, self.setting.iter)
+        #self.session.put(self.setting.base_key_expr+self.setting.status, 'Completed')
+        #self.clearance()
+    '''
     def clearance(self):
-        self.session.put(self.setting.base_key_expr+'/clear', 'Cleared')
+        self.session.put(self.setting.base_key_expr+'/clear', 'Cleared')'''
 
     # closes the server and undeclares the declared variables.
     def close_action_server(self) -> bool:
         log.warning('Stopping Session.....')
-        self.session.put(self.setting.base_key_expr+self.setting.stop, 'Stopped')
-        self.session.put(self.setting.base_key_expr+self.setting.start, None)
+        self.session.put(self.setting.base_key_expr+"/stop", 'Stopped')
+        '''self.session.put(self.setting.base_key_expr+self.setting.start, None)
         self.session.put(self.setting.base_key_expr+self.setting.health, None)
-        self.session.put(self.setting.base_key_expr+self.setting.status, None)
+        self.session.put(self.setting.base_key_expr+self.setting.status, None)'''
         self.sub.undeclare()
         self.queryable.undeclare()
         self.pub.undeclare()
         self.session.close()
         log.info('Session closed.')
-        return True
+        #return True
 
+    def put(self, end_expr, value):
+        self.session.put(self.setting.base_key_expr+end_expr, value)
 
 if __name__ == '__main__':
 
@@ -154,7 +149,6 @@ if __name__ == '__main__':
     session.setup_action_server()
 
     # 2. wait for events
-    events = state_machine.StateMachine(session)
-    asyncio.run(events.idle())
+    events = state_machine.StateMachine(session.session)
      
     

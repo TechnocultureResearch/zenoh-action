@@ -1,11 +1,4 @@
 base_key_expr: Genotyper/1/DNASensor/1
-
-start: /start
-stop: /stop
-status: /status
-health: /health
-busy: /busy
-done: /done
 iter: 10
 target: ALL
 config: 
@@ -13,4 +6,3 @@ listen:
 connect: 
 mode: peer
 declare_key_expr: Genotyper/1/DNASensor/1/**
-
