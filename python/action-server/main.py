@@ -2,13 +2,11 @@ import time
 import json
 import itertools
 import zenoh
-from zenoh import Reliability, SampleKind, Query, Sample, KeyExpr, QueryTarget, Value
+from zenoh import Query
 from pydantic import BaseModel
-import logging
 import asyncio
 import yaml
 import state_machine
-log = logging.getLogger(__name__)
 
 # describe settings for parsing values.
 class ActionSettings(BaseModel):
@@ -18,38 +16,54 @@ class ActionSettings(BaseModel):
     config: str = ""
     base_key_expr: str
 
-store = {}
-
-class Handlers():
+class Handlers:
     '''
     handler functions are going to use by session declarables.
     1. query_handler method replies of every query which get function asks.
     '''
 
-    def query_handler(self, query: Query):
+    def trigger_query_handler(self, query: Query) -> None:
         print(">> [Queryable ] Received Query '{}'".format(query.selector))
-        for stored_name, sample in store.items():
-            if query.key_expr.intersects(stored_name):
-                query.reply(sample)
-        
+        event = json.loads(query)['event']
+        '''
+            check if event is possible or not from state machine for that you need to import statemachine states and transitions.
+            needs to make a function in statemachine that will trigger the queried event and give msg if event is accepted or not. If error comes then it will give error.
+        '''
+        try: 
+            value = self.session_state.triggered_event(event)
+            if value:
+                payload = {'reponse_code':'accepted', 'message':'trigger is accepted'}
+                query.reply(payload)
+            else:
+                payload = {'response_code':'rejected', 'message':value}
+                query.reply(payload)
+        except Exception as e:
+            print(e)
+    
+    def statechart_query_handler(self, query: Query):
+        try:
+            statechart = self.session_state.statechart()
+            query.reply(statechart)
+        except Exception as e:
+            query.reply({'Error': e})            
 
 class Session(Handlers):
     '''
     1. __init__ method creates self.session and perform self.session related tasks. Takes an object of settings.
     2. configuration method - configures the zenoh configuration from settings variables and returns a configuration object.
     3. setup_action_server method - 
-        - starts action server, 
+        - creates session for zenohd, 
         - declares two queryables
             - for statechart
             - for trigger
         - declares a publisher
     '''
-    def __init__(self, settings):
+    def __init__(self, settings, session_state: Session_state) -> None:
         self.setting = settings
         self.session = None
-        self.sub = None
         self.pub = None
-        self.queryable = None
+        self.trigger_queryable = None
+        self.statechart_queryable = None
 
     def configuration(self):
         conf = zenoh.Config.from_file(
@@ -67,20 +81,6 @@ class Session(Handlers):
         zenoh.init_logger()
         self.session = zenoh.open(self.configuration())
         
-        self.trigger_queryable = self.session.declare_queryable(self.setting.base_key_expr+'/trigger', self.query_handler)
-        self.statechart_queryable = self.session.declare_queryable(self.setting.base_key_expr+'/statechart', self.query_handler)
+        self.trigger_queryable = self.session.declare_queryable(self.setting.base_key_expr+'/trigger', self.trigger_query_handler)
+        self.statechart_queryable = self.session.declare_queryable(self.setting.base_key_expr+'/statechart', self.statechart_query_handler)
         self.pub = self.session.declare_publisher(self.setting.base_key_expr+'/state')
-
-
-if __name__ == '__main__':
-
-    with open('action.yml') as file:
-        try:
-            settingConfig = yaml.safe_load(file)  
-        except yaml.YAMLError as err:
-            print(err)
-
-    settings = ActionSettings(**settingConfig)
-
-    session = Session(settings)
-    session.setup_action_server()

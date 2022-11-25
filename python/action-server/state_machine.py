@@ -3,20 +3,6 @@ from transitions.extensions.factory import HierarchicalMachine
 import json
 
 QUEUED = True
-base_key_expr = 'Genotyper/1/DNAsesnsor/1'
-
-class Session_state:
-    def __init__(self, session):
-        self.session=session
-
-    def statechart(self):
-        statechart = json.dumps(self.markup, indent=3)
-        self.session.put("/statechart", statechart)
-        return True
-
-    def state_(self):
-        self.session.put("/state", self.state)
-        
 
 class Unhealthy(HierarchicalMachine):
     def __init__(self):
@@ -56,12 +42,31 @@ class Healthy(HierarchicalMachine):
 
 
 
-class StateMachine(HierarchicalMachine, MarkupMachine, Session_state):
+class StateMachine(HierarchicalMachine, MarkupMachine):
     def __init__(self):
         healthy = Healthy()
         states = ["idle", {"name":'healthy', 'children':healthy}]
         super().__init__(states=states, initial="idle", queued=QUEUED)
         self.add_transition("start_machine", "idle", "healthy")
-    
 
+
+class Session_state:
+    def __init__(self):
+        self.statemachine = StateMachine()
+
+    def statechart(self):
+        statechart = json.dumps(self.statemachine.markup, indent=3)
+        return statechart
+
+    def state_(self):
+        return self.statemachine.state
     
+    def triggered_event(self, event):
+        '''
+            how to use different event as trigger function.
+        '''
+        try:
+            self.statemachine.event()
+        except Exception as e:
+            return e
+        
