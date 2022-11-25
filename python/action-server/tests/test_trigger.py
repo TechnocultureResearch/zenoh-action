@@ -1,22 +1,24 @@
+from main import Session
+from state_machine import Session_state
+import zenoh
+from zenoh import QueryTarget
 import json
-import yaml
-from state_machine import StateMachine
-import main
+import pytest
 
-def test_statechart():
-    with open('action.yml') as file:
+def test_trigger():
+    target = {
+    'ALL': QueryTarget.ALL(),
+    'BEST_MATCHING': QueryTarget.BEST_MATCHING(),
+    'ALL_COMPLETE': QueryTarget.ALL_COMPLETE(),}.get("ALL")
+
+    session_obj = Session()
+    session_obj.setup_action_server()
+    statechart=session_obj.session.get("Genotyper/1/DNAsensor/1/statechart", zenoh.ListCollector(), target=target)
+    for reply in statechart():
         try:
-            settingConfig = yaml.safe_load(file)  
-        except yaml.YAMLError as err:
-            print(err)
-
-    settings = main.ActionSettings(**settingConfig)
-    session = main.Session(settings, c)
-    session.setup_action_server()
-    model = StateMachine()
-    model.init_session(session)
-    value = session.get('/trigger/start')
-    print(value)
-
-test_statechart()
-
+            value = reply.ok.payload.decode("utf-8")
+        except:
+            print(">> Received (ERROR: '{}')"
+                .format(reply.err.payload.decode("utf-8")))
+    
+    assert json.loads(value) == Session_state().statechart()

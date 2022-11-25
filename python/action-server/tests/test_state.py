@@ -1,24 +1,24 @@
-from transitions.extensions.markup import MarkupMachine
+from main import Session
+from state_machine import Session_state
+import zenoh
+from zenoh import QueryTarget
 import json
 import pytest
-import requests
-import yaml
-import state_machine
-import main
 
-url = 'https://localhost:7447'
+def test_state():
+    target = {
+    'ALL': QueryTarget.ALL(),
+    'BEST_MATCHING': QueryTarget.BEST_MATCHING(),
+    'ALL_COMPLETE': QueryTarget.ALL_COMPLETE(),}.get("ALL")
 
-def test_statechart():
-    with open('action.yml') as file:
+    session_obj = Session()
+    session_obj.setup_action_server()
+    statechart=session_obj.session.get("Genotyper/1/DNAsensor/1/statechart", zenoh.ListCollector(), target=target)
+    for reply in statechart():
         try:
-            settingConfig = yaml.safe_load(file)  
-        except yaml.YAMLError as err:
-            print(err)
-
-    settings = main.ActionSettings(**settingConfig)
-    session = main.Session(settings)
-    model = state_machine.StateMachine(session)
-    test_json = json.loads(model.json_create())
-    response = requests.post(url, test_json['state'])
-    assert response.status_code == 201
-
+            value = reply.ok.payload.decode("utf-8")
+        except:
+            print(">> Received (ERROR: '{}')"
+                .format(reply.err.payload.decode("utf-8")))
+    
+    assert json.loads(value) == Session_state().statechart()

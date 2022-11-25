@@ -1,25 +1,17 @@
-import time
 import json
-import itertools
 import zenoh
-from zenoh import Query
-from pydantic import BaseModel
+from zenoh import Query, Sample
 import asyncio
-import yaml
-import state_machine
+from state_machine import Session_state
+from config import ZenohConfig
 
-# describe settings for parsing values.
-class ActionSettings(BaseModel):
-    mode: str = ""
-    connect: str = ""
-    listen: str = ""
-    config: str = ""
-    base_key_expr: str
+base_key_expr = "Genotyper/1/DNAsensor/1"
 
 class Handlers:
     '''
-    handler functions are going to use by session declarables.
-    1. query_handler method replies of every query which get function asks.
+    Handlers class contains callback methods for queryables.
+    1. trigger_query_handler method replies of every query related to the keyexpression `/trigger`.
+    2. statechart_query_handler method replies to `/statechart` related query.
     '''
 
     def trigger_query_handler(self, query: Query) -> None:
@@ -33,19 +25,22 @@ class Handlers:
             value = self.session_state.triggered_event(event)
             if value:
                 payload = {'reponse_code':'accepted', 'message':'trigger is accepted'}
-                query.reply(payload)
+                query.reply(Sample(base_key_expr+"/trigger", payload)) 
             else:
                 payload = {'response_code':'rejected', 'message':value}
-                query.reply(payload)
+                query.reply(Sample(base_key_expr+"/trigger", payload)) 
         except Exception as e:
             print(e)
     
-    def statechart_query_handler(self, query: Query):
+    def statechart_query_handler(self, query):
         try:
-            statechart = self.session_state.statechart()
-            query.reply(statechart)
+            session_state = Session_state()
+            statechart = session_state.statechart()
+            query.reply(Sample(base_key_expr+"/statechart", statechart))
         except Exception as e:
-            query.reply({'Error': e})            
+            payload = {'Error': e}
+            query.reply(Sample(base_key_expr+"/statechart", payload))       
+        
 
 class Session(Handlers):
     '''
@@ -58,22 +53,23 @@ class Session(Handlers):
             - for trigger
         - declares a publisher
     '''
-    def __init__(self, settings, session_state: Session_state) -> None:
-        self.setting = settings
+
+    def __init__(self) -> None:
         self.session = None
         self.pub = None
         self.trigger_queryable = None
         self.statechart_queryable = None
 
     def configuration(self):
+        zenohConfig = ZenohConfig()
         conf = zenoh.Config.from_file(
-            self.setting.config) if self.setting.config is not None else zenoh.Config()
-        if self.setting.mode is not None:
-            conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.setting.mode))
-        if self.setting.connect is not None:
-            conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.setting.connect))
-        if self.setting.listen is not None:
-            conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.setting.listen))
+            zenohConfig.config) if zenohConfig.config is not None else zenoh.Config()
+        if zenohConfig.mode is not None:
+            conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(zenohConfig.mode))
+        if zenohConfig.connect is not None:
+            conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(zenohConfig.connect))
+        if zenohConfig.listen is not None:
+            conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(zenohConfig.listen))
         return conf
 
     def setup_action_server(self):
@@ -81,6 +77,6 @@ class Session(Handlers):
         zenoh.init_logger()
         self.session = zenoh.open(self.configuration())
         
-        self.trigger_queryable = self.session.declare_queryable(self.setting.base_key_expr+'/trigger', self.trigger_query_handler)
-        self.statechart_queryable = self.session.declare_queryable(self.setting.base_key_expr+'/statechart', self.statechart_query_handler)
-        self.pub = self.session.declare_publisher(self.setting.base_key_expr+'/state')
+        self.trigger_queryable = self.session.declare_queryable(base_key_expr+'/trigger', self.trigger_query_handler)
+        self.statechart_queryable = self.session.declare_queryable(base_key_expr+'/statechart', self.statechart_query_handler)
+        self.pub = self.session.declare_publisher(base_key_expr+'/state')

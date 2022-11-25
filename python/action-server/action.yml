@@ -1,4 +1,3 @@
-base_key_expr: Genotyper/1/DNASensor/1
 config: 
 listen: 
 connect: 
