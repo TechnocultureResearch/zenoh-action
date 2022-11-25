@@ -20,4 +20,4 @@ def test_statechart():
             print(">> Received (ERROR: '{}')"
                 .format(reply.err.payload.decode("utf-8")))
     
-    assert json.loads(value) == Session_state().statechart()
+    assert json.loads(value) == json.loads(Session_state().statechart())
