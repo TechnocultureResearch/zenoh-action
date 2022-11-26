@@ -1,6 +1,7 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
 import json
+import zenoh
 
 QUEUED = True
 
@@ -23,6 +24,9 @@ class Unhealthy(HierarchicalMachine):
         super().__init__(states=states, transitions=transitions, initial="awaitingclearanceerr", queued=QUEUED)
 
 class Healthy(HierarchicalMachine):
+    '''
+        Heathy state machine which triggers states which are healthy for the machine. Creates object of unhealthy state machine to transit when forced aborted triggered or clerance_timeout
+    '''
     def __init__(self):
         aborted = Unhealthy()
         states = [{"name":'idle', 'on_enter':['start']},
@@ -51,10 +55,22 @@ class StateMachine(HierarchicalMachine, MarkupMachine):
 
 
 class Session_state:
-    def __init__(self):
+    '''
+       This class contains the methods used to be used by server to manage statemachine.
+       It initializes the object of StateMachine class when the object of class gets created.
+            statechart: returns the complete statemachine in specilaized json format.
+            state_: returns the current state of the machine.
+            triggered_event: It triggers the given event on the statemachine. Returns true if the event triggered successfully,
+                             and error if any exception or error arises while trigring th event. 
+    '''
+
+    def __init__(self)-> None:
         self.statemachine = StateMachine()
 
     def statechart(self):
+        '''
+            Returns the complete statemachine in specialized json format.
+        '''
         statechart = json.dumps(self.statemachine.markup, indent=3)
         return statechart
 
@@ -62,11 +78,10 @@ class Session_state:
         return self.statemachine.state
     
     def triggered_event(self, event):
-        '''
-            how to use different event as trigger function.
-        '''
         try:
-            self.statemachine.event()
+            callable_event = getattr(self.statemachine, event)
+            callable_event()
         except Exception as e:
             return e
+        return True
         
