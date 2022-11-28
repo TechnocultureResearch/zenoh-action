@@ -28,12 +28,12 @@ class Healthy(HierarchicalMachine):
         Heathy state machine which triggers states which are healthy for the machine. Creates object of unhealthy state machine to transit when forced aborted triggered or clerance_timeout
     '''
     def __init__(self):
-        aborted = Unhealthy()
+        unhealthy = Unhealthy()
         states = [{"name":'idle', 'on_enter':['start']},
                     {"name":"busy"},
-                    {"name":"aborted", "children": aborted},
+                    {"name":"aborted", "children": unhealthy},
                     {"name":"done"},
-                    {"name":"clearancetimeout", "children": aborted},
+                    {"name":"clearancetimeout", "children": unhealthy},
                     {"name":"awaitingclearance"}]
 
         transitions = [{'trigger':'start', 'source':'idle', 'dest':'busy'},
@@ -82,6 +82,6 @@ class Session_state:
             callable_event = getattr(self.statemachine, event)
             callable_event()
         except Exception as e:
-            return e
+            raise ValueError(e)
         return True
         

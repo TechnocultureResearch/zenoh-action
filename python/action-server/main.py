@@ -3,7 +3,8 @@ import zenoh
 from zenoh import Query, Sample
 import asyncio
 from state_machine import Session_state
-from config import ZenohConfig
+from config import ZenohConfig, ValidatorModel
+from pydantic import ValidationError
 
 base_key_expr = "Genotyper/1/DNAsensor/1"
 
@@ -13,40 +14,24 @@ class Handlers:
         trigger_query_handler: method replies of every query related to the keyexpression `/trigger`.
         statechart_query_handler: method replies to `/statechart` related query.
     '''
-    def query_handler(self, query: Query):
-        '''
-            Made this for handling queries related to  `/trigger` but don't know in which format queries are going to put on the queryable.
-            CONFUSED ABOUT THIS FUNCTION.
-        '''
-        if query.selector == base_key_expr+'/statechart':
-            self.statechart_query_handler(query)
-        elif query.selector == base_key_expr+'trigger':
-            pass
-
 
     def trigger_query_handler(self, query: Query) -> None:
-        print(">> [Queryable ] Received Query '{}'".format(query.selector))
-        event = json.loads(query)['event']
         '''
             check if event is possible or not from state machine for that you need to import statemachine states and transitions.
-            needs to make a function in statemachine that will trigger the queried event and give msg if event is accepted or not. If error comes then it will give error.
             Args:
                 query: a string which describes query in the form of keyexpr
-            Raises:
-                Error: if any error arrives
             Returns:
                 It returns nothing but replies of queries.
         '''
         try: 
-            value = self.session_state.triggered_event(event)
-            if value:
-                payload = {'reponse_code':'accepted', 'message':'trigger is accepted'}
-                query.reply(Sample(base_key_expr+"/trigger", payload)) 
-            else:
-                payload = {'response_code':'rejected', 'message':value}
-                query.reply(Sample(base_key_expr+"/trigger", payload)) 
-        except Exception as e:
-            print(e)
+            print(">> [Queryable ] Received Query '{}'".format(query.selector))
+            validator = ValidatorModel(query.selector.decode_parameters())
+            value = self.session_state.triggered_event(validator.event)
+            payload = {'reponse_code':'accepted', 'message':'trigger is accepted'}
+            query.reply(Sample(base_key_expr+"/trigger", payload))
+        except (ValidationError, ValueError) as error:
+            payload = {'response_code':'rejected', 'message': error}
+            query.reply(Sample(base_key_expr+'/trigger', payload))
     
     def statechart_query_handler(self, query):
         try:
@@ -58,7 +43,7 @@ class Handlers:
             query.reply(Sample(base_key_expr+"/statechart", payload))       
         
 
-class Session(Handlers):
+class Session():
     '''
     This class performs tasks on zenohd.
     Methods:
@@ -77,9 +62,9 @@ class Session(Handlers):
         self.trigger_queryable = None
         self.statechart_queryable = None
 
-    def configuration(self):
+    def setup_action_server(self):
         '''
-            Returns a zenoh configuration object to open zenoh session. Uses ZenohConfig class object from config module to validate configuration variables.
+            To perform tasks on zenohd we need to open session and declare queryables and publisher.
         '''
         zenohConfig = ZenohConfig()
         conf = zenoh.Config.from_file(
@@ -90,14 +75,8 @@ class Session(Handlers):
             conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(zenohConfig.connect))
         if zenohConfig.listen != "":
             conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(zenohConfig.listen))
-        return conf
-
-    def setup_action_server(self):
-        '''
-            To perform tasks on zenohd we need to open session and declare queryables and publisher.
-        '''
         zenoh.init_logger()
-        self.session = zenoh.open(self.configuration())
+        self.session = zenoh.open(conf)
         
         self.trigger_queryable = self.session.declare_queryable(base_key_expr+'/trigger', self.trigger_query_handler)
         self.statechart_queryable = self.session.declare_queryable(base_key_expr+'/statechart', self.statechart_query_handler)
