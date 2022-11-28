@@ -3,24 +3,26 @@ from pydantic import BaseModel, validator
 from pathlib import Path
 from datetime import datetime
 
-'''
+
+class ZenohValidator(ConfZ):
+    '''
     Config module for zenoh configuration. Validates the configuration variables using ConfZ by pydantic module.
-    It validates 4 variables:
+    Args:
         - mode: two choices were there:
             - peer
             - client
         - connect: the endpoint to connect
         - listen: the endpoint to listen 
-        - config: a configuration file for zenoh variables.
-'''
-
-class ZenohConfig(ConfZ):
+       - config: a configuration file for zenoh variables.
+    '''
     mode: str = 'peer'
     connect: str = ""
     listen: str = ""
     config: str = ""
-     
-#    CONFIG_SOURCES = ConfZFileSource(folder=Path('action.yml'))
+    base_key_expr: str = ""
+    
+    if config != "":
+        CONFIG_SOURCES = ConfZFileSource(folder=Path(config))
 
 class ValidatorModel(BaseModel):
     timestamp: str

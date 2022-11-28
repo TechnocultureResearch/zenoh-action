@@ -1,53 +1,71 @@
 import json
 import zenoh
-from zenoh import Query, Sample
+from zenoh import Query, Sample, Timestamp
 import asyncio
 from state_machine import Session_state
-from config import ZenohConfig, ValidatorModel
+from validators import ZenohValidator, ValidatorModel
 from pydantic import ValidationError
+import time
 
 base_key_expr = "Genotyper/1/DNAsensor/1"
 
 class Handlers:
     '''
     Handlers class contains callback methods for queryables.
+    Args:
+        takes 0 arguments.
+    Methods:
         trigger_query_handler: method replies of every query related to the keyexpression `/trigger`.
         statechart_query_handler: method replies to `/statechart` related query.
     '''
+    def __init__(self) -> None:
+        self.publisher = None
 
     def trigger_query_handler(self, query: Query) -> None:
         '''
-            check if event is possible or not from state machine for that you need to import statemachine states and transitions.
+            A query handler for `**/trigger` queryable. It checks if an event is possible or not from state machine for that you need to import statemachine states and transitions.
             Args:
                 query: a string which describes query in the form of keyexpr
             Returns:
                 It returns nothing but replies of queries.
+            Raises:
+                ValueError if any ValidationError or ValueError arises.
         '''
         try: 
             print(">> [Queryable ] Received Query '{}'".format(query.selector))
             validator = ValidatorModel(query.selector.decode_parameters())
             value = self.session_state.triggered_event(validator.event)
-            payload = {'reponse_code':'accepted', 'message':'trigger is accepted'}
+            payload = {'reponse_code':'accepted', 'message':'Trigger is accepted and triggered'}
             query.reply(Sample(base_key_expr+"/trigger", payload))
         except (ValidationError, ValueError) as error:
             payload = {'response_code':'rejected', 'message': error}
-            query.reply(Sample(base_key_expr+'/trigger', payload))
+            raise ValueError(query.reply(Sample(base_key_expr+'/trigger', payload, )))
     
-    def statechart_query_handler(self, query):
+    def statechart_query_handler(self, query: Query):
+        '''
+            Query handle to reply the queries on the key_expr `**/statechart`.
+
+            Args:
+                query: a string which describes query in the form of keyexpr
+            Returns:
+                It returns nothing but replies the queries.
+            Raises:
+                ValueError if any ValueError arises.
+        '''
         try:
-            session_state = Session_state()
+            session_state = Session_state(pub=self.publisher)
             statechart = session_state.statechart()
             query.reply(Sample(base_key_expr+"/statechart", statechart))
-        except Exception as e:
-            payload = {'Error': e}
-            query.reply(Sample(base_key_expr+"/statechart", payload))       
-        
+        except ValueError as error:
+            payload = {'Error': error}
+            raise ValueError(query.reply(Sample(base_key_expr+"/statechart", payload)))
 
-class Session():
+class Session(Handlers):
     '''
     This class performs tasks on zenohd.
+    Args:
+        Takes 0 arguments.
     Methods:
-        - configuration method: configures the zenoh configuration from settings variables and returns a configuration object.
         - setup_action_server method:
             - creates session for zenohd, 
             - declares two queryables
@@ -62,22 +80,31 @@ class Session():
         self.trigger_queryable = None
         self.statechart_queryable = None
 
-    def setup_action_server(self):
+    def setup_action_server(self) -> None:
         '''
-            To perform tasks on zenohd we need to open session and declare queryables and publisher.
+            To perform tasks on zenohd we need to open session and declare queryables for `/trigger` & `/statechart` and publisher for publishing `/state`.
+            Args: 
+                Takes 0 arguments.
+            Raises:
+                ValueError if any exception arises.
         '''
-        zenohConfig = ZenohConfig()
-        conf = zenoh.Config.from_file(
-            zenohConfig.config) if zenohConfig.config != "" else zenoh.Config()
-        if zenohConfig.mode != "":
-            conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(zenohConfig.mode))
-        if zenohConfig.connect != "":
-            conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(zenohConfig.connect))
-        if zenohConfig.listen != "":
-            conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(zenohConfig.listen))
-        zenoh.init_logger()
-        self.session = zenoh.open(conf)
-        
-        self.trigger_queryable = self.session.declare_queryable(base_key_expr+'/trigger', self.trigger_query_handler)
-        self.statechart_queryable = self.session.declare_queryable(base_key_expr+'/statechart', self.statechart_query_handler)
-        self.pub = self.session.declare_publisher(base_key_expr+'/state')
+        try:
+            zenohConfig = ZenohValidator()
+            conf = zenoh.Config.from_file(
+                zenohConfig.config) if zenohConfig.config != "" else zenoh.Config()
+            if zenohConfig.mode != "":
+                conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(zenohConfig.mode))
+            if zenohConfig.connect != "":
+                conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(zenohConfig.connect))
+            if zenohConfig.listen != "":
+                conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(zenohConfig.listen))
+            zenoh.init_logger()
+            self.session = zenoh.open(conf)
+            
+            self.trigger_queryable = self.session.declare_queryable(base_key_expr+'/trigger', self.trigger_query_handler)
+            self.statechart_queryable = self.session.declare_queryable(base_key_expr+'/statechart', self.statechart_query_handler)
+            self.pub = self.session.declare_publisher(base_key_expr+'/state')
+            self.publisher = self.pub
+
+        except Exception as error:
+            raise ValueError("Error encountered while opening session: {}. \n Hint: Please restart the server.".format(error))

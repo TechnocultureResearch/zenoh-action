@@ -1,7 +1,6 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
 import json
-import zenoh
 
 QUEUED = True
 
@@ -57,31 +56,41 @@ class StateMachine(HierarchicalMachine, MarkupMachine):
 class Session_state:
     '''
        This class contains the methods used to be used by server to manage statemachine.
-       It initializes the object of StateMachine class when the object of class gets created.
-            statechart: returns the complete statemachine in specilaized json format.
-            state_: returns the current state of the machine.
-            triggered_event: It triggers the given event on the statemachine. Returns true if the event triggered successfully,
-                             and error if any exception or error arises while trigring th event. 
+       Args:
+            pub- a publisher object of session class to put state on zenoh session.
+            statemachine- an object of the state machine.
+        Returns:
+            Returns Nothing.
     '''
 
-    def __init__(self)-> None:
-        self.statemachine = StateMachine()
+    def __init__(self, pub = None, statemachine = StateMachine())-> None:
+        self.statemachine = statemachine
+        self.pub = pub
 
     def statechart(self):
         '''
-            Returns the complete statemachine in specialized json format.
+            Converts the complete statemachine to a serialized json format.
+            Args:
+                Takes 0 arguments.
+            Returns:
+                statechart variable which is complete statemachine in a serialized json format.
+            Raises:
+                ValueError if any exception arises.
         '''
         statechart = json.dumps(self.statemachine.markup, indent=3)
         return statechart
 
     def state_(self):
-        return self.statemachine.state
+        try:
+            self.pub.put(self.statemachine.state)
+        except Exception as error:
+            raise ValueError(error)
     
     def triggered_event(self, event):
         try:
             callable_event = getattr(self.statemachine, event)
             callable_event()
-        except Exception as e:
-            raise ValueError(e)
+        except Exception as error:
+            raise ValueError(error)
         return True
         
