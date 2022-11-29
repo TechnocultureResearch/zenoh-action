@@ -5,6 +5,10 @@ import json
 QUEUED = True
 
 class Unhealthy(HierarchicalMachine):
+    '''
+    Heathy state machine which triggers states which are healthy for the machine.
+    Inherited with HierarchicalMachine.
+    '''
     def __init__(self):
         states = [{"name":'aborted', "on_enter":["aborted"]},
                     {"name":"awaitingclearanceerr", 'on_enter':['cleared']},
@@ -24,7 +28,9 @@ class Unhealthy(HierarchicalMachine):
 
 class Healthy(HierarchicalMachine):
     '''
-        Heathy state machine which triggers states which are healthy for the machine. Creates object of unhealthy state machine to transit when forced aborted triggered or clerance_timeout
+    Heathy state machine which triggers states which are healthy for the machine. 
+    Creates object of unhealthy state machine to transit when forced aborted triggered or clerance_timeout.
+    Inherited with HierarchicalMachine
     '''
     def __init__(self):
         unhealthy = Unhealthy()
@@ -55,12 +61,10 @@ class StateMachine(HierarchicalMachine, MarkupMachine):
 
 class Session_state:
     '''
-       This class contains the methods used to be used by server to manage statemachine.
-       Args:
-            pub- a publisher object of session class to put state on zenoh session.
-            statemachine- an object of the state machine.
-        Returns:
-            Returns Nothing.
+    This class contains the methods used to be used by server to manage statemachine.
+    Args:
+        pub: an optional publisher object of session class to put the current executing state on zenohd.
+        statemachine: an object of the state machine. Bydefault, It is taking an object of the statemachine declared in this module.
     '''
 
     def __init__(self, pub = None, statemachine = StateMachine())-> None:
@@ -69,24 +73,38 @@ class Session_state:
 
     def statechart(self):
         '''
-            Converts the complete statemachine to a serialized json format.
-            Args:
-                Takes 0 arguments.
-            Returns:
-                statechart variable which is complete statemachine in a serialized json format.
-            Raises:
-                ValueError if any exception arises.
+        Converts the complete statemachine to a serialized json format.
+        Args:
+            Takes 0 arguments.
+        Returns:
+            statechart variable which is complete statemachine in a serialized json format.
+        Raises:
+            ValueError if any exception arises.
         '''
         statechart = json.dumps(self.statemachine.markup, indent=3)
         return statechart
 
     def state_(self):
+        '''
+        Publishes the current executing state on zenohd.
+        Args:
+            Takes 0 arguments.
+        Publishes:
+            Publish the current executing state on zenohd.
+        Raises:
+            ValueError if any exception arises.
+        '''
         try:
             self.pub.put(self.statemachine.state)
         except Exception as error:
             raise ValueError(error)
     
     def triggered_event(self, event):
+        '''
+        Triggers an event on the state machine.
+        Raises:
+            ValueError if any exception arises.
+        '''
         try:
             callable_event = getattr(self.statemachine, event)
             callable_event()

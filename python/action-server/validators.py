@@ -19,19 +19,19 @@ class ZenohValidator(ConfZ):
     connect: str = ""
     listen: str = ""
     config: str = ""
-    base_key_expr: str = ""
+    base_key_expr: str = "Genotyper/1/DNAsensor/1"
     
     if config != "":
         CONFIG_SOURCES = ConfZFileSource(folder=Path(config))
 
-class ValidatorModel(BaseModel):
+class EventModel(BaseModel):
     timestamp: str
     event: str
 
     @validator('timestamp')
     def must_be_a_timestamp(cls, v):
         try:
-            datetime.strptime(v, '%Y-%m-%d %H:%M:%S.%f')
+            datetime.fromtimestamp(v)
         except ValueError:
             raise ValueError("Timestamp is not valid.")
         return v
