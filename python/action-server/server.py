@@ -1,22 +1,32 @@
 import json
 import zenoh
-from zenoh import Query, Sample, Timestamp
+from zenoh import Query, Sample
 import asyncio
 from state_machine import Session_state
 from validators import ZenohValidator, EventModel
 from pydantic import ValidationError
 
-class Handlers:
+class Session:
     '''
-    Handlers class contains callback methods for queryables.
-    Args:
-        takes 0 arguments.
+    This class performs tasks on zenohd.
     Methods:
-        trigger_query_handler: method replies of every query related to the keyexpression `/trigger`.
-        statechart_query_handler: method replies to `/statechart` related query.
+        setup_action_server method:
+            - creates session for zenohd, 
+            - declares two queryables
+                - for statechart
+                - for trigger
+            - declares a publisher
     '''
     def __init__(self) -> None:
-        self.publisher = None
+        '''
+        Initializes the variables.
+        Args:
+            Takes 0 arguments.
+        '''
+        self.session = None
+        self.pub = None
+        self.trigger_queryable = None
+        self.statechart_queryable = None
         self.zenohConfig = ZenohValidator()
 
     def trigger_query_handler(self, query: Query) -> None:
@@ -58,27 +68,6 @@ class Handlers:
             payload = {'Error': error}
             query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", payload))
             raise
-
-class Session(Handlers):
-    '''
-    This class performs tasks on zenohd.
-    Args:
-        Takes 0 arguments.
-    Methods:
-        setup_action_server method:
-            - creates session for zenohd, 
-            - declares two queryables
-                - for statechart
-                - for trigger
-            - declares a publisher
-    '''
-
-    def __init__(self) -> None:
-        self.session = None
-        self.pub = None
-        self.trigger_queryable = None
-        self.statechart_queryable = None
-        self.zenohConfig = ZenohValidator()
 
     def setup_action_server(self) -> None:
         '''
