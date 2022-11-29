@@ -14,7 +14,7 @@ def get(endpoint):
 
     session_obj = Session()
     session_obj.setup_action_server()
-    statechart=session_obj.session.get(endpoint, zenoh.ListCollector(), target=target)
+    statechart=session_obj.session.get("Genotyper/1/DNAsensor/1"+endpoint, zenoh.ListCollector(), target=target)
     for reply in statechart():
         try:
             value = reply.ok.payload.decode("utf-8")
@@ -23,21 +23,18 @@ def get(endpoint):
                 .format(reply.err.payload.decode("utf-8")))
     return value
 
-def put(endpoint):
-    '''
-        if user puts json file at the place of keyexpr then the server should check it but HOW?
-    '''
-
 
 def test_statechart():
     value = get("/statechart")
     assert json.loads(value) == json.loads(Session_state().statechart())
 
+def test_trigger():
+    assert get('/state') == 'idle'
+    value = get("/trigger?timestamp=&event=start%202")
+    payload = {'reponse_code':'accepted', 'message':'Trigger is accepted and triggered'}
+    assert value == payload
+
 def test_state():
     value = get("/state")
-
-def test_trigger():
-    payload = {'timestamp':time.time(), 'event':'start'}
-    "Geneotyper/1/.../trigger"
-    value = get(payload)
-    print(value)
+    assert value == 'healthy_busy'
+    

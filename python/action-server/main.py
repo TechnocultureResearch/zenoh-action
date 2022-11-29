@@ -37,7 +37,7 @@ class Handlers:
             query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
         except (ValidationError, ValueError) as error:
             payload = {'response_code':'rejected', 'message': error}
-            query.reply(Sample(self.zenohConfig.base_key_expr+'/trigger', payload, ))
+            query.reply(Sample(self.zenohConfig.base_key_expr+'/trigger', payload))
             raise
     
     def statechart_query_handler(self, query: Query):
@@ -65,7 +65,7 @@ class Session(Handlers):
     Args:
         Takes 0 arguments.
     Methods:
-        - setup_action_server method:
+        setup_action_server method:
             - creates session for zenohd, 
             - declares two queryables
                 - for statechart
@@ -78,6 +78,7 @@ class Session(Handlers):
         self.pub = None
         self.trigger_queryable = None
         self.statechart_queryable = None
+        self.zenohConfig = ZenohValidator()
 
     def setup_action_server(self) -> None:
         '''
@@ -85,25 +86,24 @@ class Session(Handlers):
         Args: 
             Takes 0 arguments.
         Raises:
-            ValueError if any exception arises.
+            RuntimeError, if any exception arises.
         '''
         try:
-            zenohConfig = ZenohValidator()
             conf = zenoh.Config.from_file(
-                zenohConfig.config) if zenohConfig.config != "" else zenoh.Config()
-            if zenohConfig.mode != "":
-                conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(zenohConfig.mode))
-            if zenohConfig.connect != "":
-                conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(zenohConfig.connect))
-            if zenohConfig.listen != "":
-                conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(zenohConfig.listen))
+                self.zenohConfig.config) if self.zenohConfig.config != "" else zenoh.Config()
+            if self.zenohConfig.mode != "":
+                conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.zenohConfig.mode))
+            if self.zenohConfig.connect != "":
+                conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.zenohConfig.connect))
+            if self.zenohConfig.listen != "":
+                conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.zenohConfig.listen))
             zenoh.init_logger()
             self.session = zenoh.open(conf)
             
-            self.trigger_queryable = self.session.declare_queryable(zenohConfig.base_key_expr+'/trigger', self.trigger_query_handler)
-            self.statechart_queryable = self.session.declare_queryable(zenohConfig.base_key_expr+'/statechart', self.statechart_query_handler)
-            self.pub = self.session.declare_publisher(zenohConfig.base_key_expr+'/state')
+            self.trigger_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/trigger', self.trigger_query_handler)
+            self.statechart_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/statechart', self.statechart_query_handler)
+            self.pub = self.session.declare_publisher(self.zenohConfig.base_key_expr+'/state')
             self.publisher = self.pub
 
         except Exception as error:
-            raise ValueError("Error encountered while opening session: {}. \n Hint: Please restart the server.".format(error))
+            raise RuntimeError("Error encountered while opening session: {}. \n Hint: Please restart the server.".format(error))
