@@ -8,13 +8,16 @@ from pydantic import ValidationError
 
 class Session:
     '''
-    This class performs tasks on zenohd.
+    This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
     '''
     def __init__(self) -> None:
         '''
         Initializes the variables.
-        Args:
-            Takes 0
+        zenohConfig: object of the ZenohConfig class which validates zenoh configuration variables.
+        session: creates zenoh session.
+        trigger_queryable: object of queryable for trigger endpoint.
+        statechart_queryable: object of queryable for statechart endpoint.
+        statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
         '''
         self.zenohConfig = ZenohConfig()
         conf = zenoh.Config.from_file(
@@ -27,7 +30,6 @@ class Session:
             conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.zenohConfig.listen))
         zenoh.init_logger()
         self.session = zenoh.open(conf)
-        self.pub = self.session.declare_publisher(self.zenohConfig.base_key_expr+'/state')
         self.trigger_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/trigger', self.trigger_query_handler)
         self.statechart_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/statechart', self.statechart_query_handler)
         self.statemachine = StateMachineModel()
@@ -51,8 +53,11 @@ class Session:
         except ValueError as error:
             payload = {"reponse_code":"rejected", "message":"{}".format(error)}
             query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
+            raise
         except ValidationError as error:
-            print(error)
+            payload = {"reponse_code":"rejected", "message":"{}".format(error)}
+            query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
+            raise
             
             
     def statechart_query_handler(self, query: Query):
@@ -62,6 +67,8 @@ class Session:
             query: a string which describes query in the form of keyexpr.
         Replies:
             Replies to a query with a keyexpression and a payload in json format.
+        Raises:
+            ValueError, if any ValueError arises.
         '''
         try:
             markup_statechart = self.statemachine.statechart()
@@ -69,4 +76,5 @@ class Session:
         except ValueError as error:
             payload = {'Error': error}
             query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", payload))
+            raise
             

@@ -5,6 +5,14 @@ import json
 from validators import ZenohConfig
 import zenoh
 
+'''
+Global variables:
+    QUEUED(bool): To process the tranisitions in a queue.
+    args: object of the ZenohConfig class which validates zenoh configuration variables.
+    conf: Zenoh configuration object from zenohd.
+    session: object to create a session.
+    pub: object for publisher to publish executed state on zenohd.
+'''
 args = ZenohConfig()
 conf = zenoh.Config.from_file(
     args.config) if args.config != "" else zenoh.Config()
@@ -18,11 +26,6 @@ if args.listen != "":
 zenoh.init_logger()
 session = zenoh.open(conf) 
 pub = session.declare_publisher(args.base_key_expr+"/state")
-'''
-Global variables:
-    QUEUED(bool): To process the tranisitions in a queue.
-    publisher(object): it is needed to use same publisher object in the entire statemachine to put data on zenohd.
-'''
 QUEUED = False
 
 class Unhealthy(HierarchicalMachine):
@@ -31,13 +34,22 @@ class Unhealthy(HierarchicalMachine):
     Inherited with HierarchicalMachine.
     '''
     def __init__(self):
+        '''
+        Initializes tha hierarchical state machine.
+        Args:
+            states: a set of valid states.
+            transitions: a set of valid transitions.
+            initial: the first state of statemachine.
+            queued: 
+            after_state_change: callback to call after every state change.
+            send_event: send current executing event to model.
+        '''
         states = [
                     {"name":"awaitingclearanceerr", 'on_enter':[]},
                     {"name":"cleared", 'on_enter':[]},
                     {"name":"brokenwithholdings", 'on_enter':[]},
                     {"name":"brokenwithoutholdings", 'on_enter':[]},
-                    {"name":"dead"}
-                    ]
+                    {"name":"dead"}]
         transitions = [
                         {"trigger":"cleared", "source":"awaitingclearanceerr", "dest":"cleared"},
                         {"trigger":"brokenwithoutholdings", "source":"cleared", "dest":"brokenwithoutholdings"},
@@ -45,6 +57,7 @@ class Unhealthy(HierarchicalMachine):
                         {"trigger":"dead", "source":"brokenwithholdings", "dest":"dead"},
                         {"trigger":"dead", "source":"brokenwithoutholdings", "dest":"dead"}]
         super().__init__(self, states=states, transitions=transitions, initial="awaitingclearanceerr", queued=QUEUED, after_state_change='publish_state', send_event=True)
+    
     def publish_state(self, event_data):
         pub.put(event_data.model.state)
 
@@ -56,6 +69,16 @@ class Healthy(HierarchicalMachine):
     Inherited with HierarchicalMachine
     '''
     def __init__(self):
+        '''
+        Initializes tha hierarchical state machine.
+        Args:
+            states: a set of valid states.
+            transitions: a set of valid transitions.
+            initial: the first state of statemachine.
+            queued: 
+            after_state_change: callback to call after every state change.
+            send_event: send current executing event to model.
+        '''
         unhealthy = Unhealthy()
         states = [{"name":"busy", 'on_enter':[]},
                     {"name":"done", 'on_enter':[]},
@@ -66,11 +89,27 @@ class Healthy(HierarchicalMachine):
                         {"trigger":"awaitingclearance", "source":"done", "dest":"awaitingclearance"},
                         {"trigger":"idle", "source":"awaitingclearance", "dest":"idle"}]
         super().__init__(model=self, states=states, transitions=transitions, initial="busy", queued=QUEUED, after_state_change='publish_state', send_event=True)
+    
     def publish_state(self, event_data):
+        '''
+        Method to publish event state on zenohd after every state change.
+        Args:
+            event_data: complete information of current executing event i.e. transition and state.
+        '''
         pub.put(event_data.model.state)
 
 class BaseStateMachine(HierarchicalMachine,MarkupMachine):
     def __init__(self):
+        '''
+        Initializes tha hierarchical state machine. Basestatemachine calls healthy and unhealthy state machine to transit from healthy machine to unhealthy machine.
+        Args:
+            states: a set of valid states.
+            transitions: a set of valid transitions.
+            initial: the first state of statemachine.
+            queued: 
+            after_state_change: callback to call after every state change.
+            send_event: send current executing event to model.
+        '''
         unhealthy= Unhealthy()
         healthy = Healthy()
         states = [{'name':"idle"}, {"name":'healthy', 'children':healthy}, {"name":"unhealthy", "children":unhealthy}]
@@ -80,21 +119,46 @@ class BaseStateMachine(HierarchicalMachine,MarkupMachine):
         self.add_transition('clearancetimeout', 'healthy', 'unhealthy')
 
     def publish_state(self, event_data):
+        '''
+        Method to publish event state on zenohd after every state change.
+        Args:
+            event_data: complete information of current executing event i.e. transition and state.
+        '''
         pub.put(event_data.model.state)
 
 class StateMachineModel:
+    """
+    This class works as a intermediate between server and statemachine.
+    """
     def __init__(self,statemachine=BaseStateMachine()):
+        """
+        Args: 
+        statemachine: object for statemachine.
+        """
         self.statemachine=statemachine
 
     def statechart(self):
+        """
+        Creates a markup of statemachine object if it inherited with markupmachine.
+        Args:
+            None
+        Returns:
+            complete statemachine in json serialized format.
+        """
         statechart = json.dumps(self.statemachine.markup, indent=3)
         return statechart
 
     def event_trigger(self, event: str):
+        """
+        Triggers the event on the statemachine.
+        Args:
+            event(str): event to trigger on statemachine. 
+        Raises:
+            AttributeError, if any AttributeError arises with message.
+        """
         try:
             event_trigger = getattr(self.statemachine, event)
             event_trigger()
-            #session.put('Genotyper/1/DNAsensor/1/state', self.statemachine.state)
         except AttributeError as error:
             raise AttributeError(error)
     
