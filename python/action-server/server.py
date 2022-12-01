@@ -1,33 +1,36 @@
 import json
 import zenoh
 from zenoh import Query, Sample
-import asyncio
-from state_machine import Session_state
-from validators import ZenohValidator, EventModel
+from state_machine import StateMachineModel
+from validators import ZenohConfig, EventModel
 from pydantic import ValidationError
+
 
 class Session:
     '''
     This class performs tasks on zenohd.
-    Methods:
-        setup_action_server method:
-            - creates session for zenohd, 
-            - declares two queryables
-                - for statechart
-                - for trigger
-            - declares a publisher
     '''
     def __init__(self) -> None:
         '''
         Initializes the variables.
         Args:
-            Takes 0 arguments.
+            Takes 0
         '''
-        self.session = None
-        self.pub = None
-        self.trigger_queryable = None
-        self.statechart_queryable = None
-        self.zenohConfig = ZenohValidator()
+        self.zenohConfig = ZenohConfig()
+        conf = zenoh.Config.from_file(
+            self.zenohConfig.config) if self.zenohConfig.config != "" else zenoh.Config()
+        if self.zenohConfig.mode != "":
+            conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.zenohConfig.mode))
+        if self.zenohConfig.connect != "":
+            conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.zenohConfig.connect))
+        if self.zenohConfig.listen != "":
+            conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.zenohConfig.listen))
+        zenoh.init_logger()
+        self.session = zenoh.open(conf)
+        self.pub = self.session.declare_publisher(self.zenohConfig.base_key_expr+'/state')
+        self.trigger_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/trigger', self.trigger_query_handler)
+        self.statechart_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/statechart', self.statechart_query_handler)
+        self.statemachine = StateMachineModel()
 
     def trigger_query_handler(self, query: Query) -> None:
         '''
@@ -41,15 +44,17 @@ class Session:
         '''
         try: 
             print(">> [Queryable ] Received Query '{}'".format(query.selector))
-            validator = EventModel(query.selector.decode_parameters())
-            value = self.session_state.triggered_event(validator.event)
+            validator = EventModel(**query.selector.decode_parameters())
+            self.statemachine.event_trigger(validator.event)
             payload = {'reponse_code':'accepted', 'message':'Trigger is accepted and triggered'}
             query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
-        except (ValidationError, ValueError) as error:
-            payload = {'response_code':'rejected', 'message': error}
-            query.reply(Sample(self.zenohConfig.base_key_expr+'/trigger', payload))
-            raise
-    
+        except ValueError as error:
+            payload = {"reponse_code":"rejected", "message":"{}".format(error)}
+            query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
+        except ValidationError as error:
+            print(error)
+            
+            
     def statechart_query_handler(self, query: Query):
         '''
         Query handle to reply the queries on the key_expr `**/statechart`.
@@ -57,42 +62,11 @@ class Session:
             query: a string which describes query in the form of keyexpr.
         Replies:
             Replies to a query with a keyexpression and a payload in json format.
-        Raises:
-            ValueError if any ValueError arises.
         '''
         try:
-            session_state = Session_state(pub=self.publisher)
-            statechart = session_state.statechart()
-            query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", statechart))
+            markup_statechart = self.statemachine.statechart()
+            query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", markup_statechart))
         except ValueError as error:
             payload = {'Error': error}
             query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", payload))
-            raise
-
-    def setup_action_server(self) -> None:
-        '''
-        To perform tasks on zenohd we need to open session and declare queryables for `/trigger` & `/statechart` and publisher for publishing `/state`.
-        Args: 
-            Takes 0 arguments.
-        Raises:
-            RuntimeError, if any exception arises.
-        '''
-        try:
-            conf = zenoh.Config.from_file(
-                self.zenohConfig.config) if self.zenohConfig.config != "" else zenoh.Config()
-            if self.zenohConfig.mode != "":
-                conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.zenohConfig.mode))
-            if self.zenohConfig.connect != "":
-                conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.zenohConfig.connect))
-            if self.zenohConfig.listen != "":
-                conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.zenohConfig.listen))
-            zenoh.init_logger()
-            self.session = zenoh.open(conf)
             
-            self.trigger_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/trigger', self.trigger_query_handler)
-            self.statechart_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/statechart', self.statechart_query_handler)
-            self.pub = self.session.declare_publisher(self.zenohConfig.base_key_expr+'/state')
-            self.publisher = self.pub
-
-        except Exception as error:
-            raise RuntimeError("Error encountered while opening session: {}. \n Hint: Please restart the server.".format(error))

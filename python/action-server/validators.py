@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 
-class ZenohValidator(ConfZ):
+class ZenohConfig(ConfZ):
     '''
     Config module for zenoh configuration. Validates the configuration variables using ConfZ by pydantic module.
     Args:
@@ -34,7 +34,6 @@ class EventModel(BaseModel):
     '''
     timestamp: str
     event: str
-
     @validator('timestamp')
     def must_be_a_timestamp(cls, v):
         '''
@@ -47,7 +46,7 @@ class EventModel(BaseModel):
             timestamp
         '''
         try:
-            datetime.fromtimestamp(v)
+            datetime.fromtimestamp(eval(v))
         except ValueError:
             raise ValueError("Timestamp is not valid.")
         return v
@@ -63,7 +62,7 @@ class EventModel(BaseModel):
         Returns:
             event
         '''
-        event_list = ['start', 'stop']
+        event_list = ['start', 'abort']
         if v not in event_list:
             raise ValueError('Event is not valid or you are not allowed to trigger event.')
         return v
