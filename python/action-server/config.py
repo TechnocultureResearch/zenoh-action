@@ -27,7 +27,15 @@ class ZenohValidator(ConfZ):
         CONFIG_SOURCES = ConfZFileSource(folder=Path(config))
 
 class ZenohConfig:
+    '''
+    Class creates zenoh configuration object and validates tha configuration variables.
+    '''
     def __init__(self, **kwargs):
+        '''
+        init takes a dict of arguments verifies them and creates a zenoh configuration object.
+        Args:
+            A dict of arguments.
+        '''
         self.obj = ZenohValidator(**kwargs)
         self.conf = zenoh.Config.from_file(
         self.obj.config) if self.obj.config != "" else zenoh.Config()
@@ -39,6 +47,13 @@ class ZenohConfig:
             self.conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.obj.listen))
     
     def zenohconfig(self):
+        '''
+        Returns the zenoh configuration object and validated arguments.
+        Args:
+            None
+        Returns:
+            A tuple of zenoh configuration object and validated arguments.
+        '''
         return self.conf, self.obj
 
 class EventModel(BaseModel):
