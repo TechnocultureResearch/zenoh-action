@@ -22,7 +22,7 @@ if args.connect != "":
     conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
 if args.listen != "":
     conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
-
+    
 zenoh.init_logger()
 session = zenoh.open(conf) 
 pub = session.declare_publisher(args.base_key_expr+"/state")

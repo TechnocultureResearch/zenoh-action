@@ -1,10 +1,10 @@
 import json
 import zenoh
-from zenoh import Query, Sample
+from zenoh import Query, Sample, Reply
 from state_machine import StateMachineModel
 from validators import ZenohConfig, EventModel
 from pydantic import ValidationError
-
+from result import Ok, Err
 
 class Session:
     '''
@@ -39,42 +39,35 @@ class Session:
         A query handler for `**/trigger` queryable. It checks if an event is possible or not from state machine for that you need to import statemachine states and transitions.
         Args:
             query: a string which describes query in the form of keyexpr
-        Replies:
-            Replies to a query with a keyexpression and a payload in json format.
-        Raises:
-            ValueError if any ValidationError or ValueError arises.
+        Reply(Ok):
+            Replies to a query with payload in json format with keys response_code and message that trigger is accepted, if no error arises.
+        Reply(Err):
+            Replies a err query with payload in json format with keys response_code and message containing error, if any err arises.
         '''
         try: 
             print(">> [Queryable ] Received Query '{}'".format(query.selector))
             validator = EventModel(**query.selector.decode_parameters())
             self.statemachine.event_trigger(validator.event)
             payload = {'reponse_code':'accepted', 'message':'Trigger is accepted and triggered'}
-            query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
-        except ValueError as error:
+            Ok(query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload)))
+        except (ValidationError, ValueError) as error:
             payload = {"reponse_code":"rejected", "message":"{}".format(error)}
-            query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
-            raise
-        except ValidationError as error:
-            payload = {"reponse_code":"rejected", "message":"{}".format(error)}
-            query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload))
-            raise
-            
+            Err(query.reply((Sample(self.zenohConfig.base_key_expr+"/trigger", payload))))
             
     def statechart_query_handler(self, query: Query):
         '''
         Query handle to reply the queries on the key_expr `**/statechart`.
         Args:
             query: a string which describes query in the form of keyexpr.
-        Replies:
-            Replies to a query with a keyexpression and a payload in json format.
-        Raises:
-            ValueError, if any ValueError arises.
+        Reply(Ok):
+            Replies to a query with complete statemachine in serialized json format, if no error arises.
+        Reply(Err):
+            Replies a err query with payload in json format containing error, if any err arises.
         '''
         try:
             markup_statechart = self.statemachine.statechart()
             query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", markup_statechart))
         except ValueError as error:
-            payload = {'Error': error}
-            query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", payload))
-            raise
+            payload = {'Error': "{}".format(error)}
+            Err(query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", payload)))
             

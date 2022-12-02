@@ -34,6 +34,7 @@ class EventModel(BaseModel):
     '''
     timestamp: str
     event: str
+
     @validator('timestamp')
     def must_be_a_timestamp(cls, v):
         '''
