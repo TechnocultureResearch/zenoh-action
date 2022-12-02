@@ -2,9 +2,10 @@ from confz import ConfZ, ConfZFileSource
 from pydantic import BaseModel, validator
 from pathlib import Path
 from datetime import datetime
+import zenoh
+import json
 
-
-class ZenohConfig(ConfZ):
+class ZenohValidator(ConfZ):
     '''
     Config module for zenoh configuration. Validates the configuration variables using ConfZ by pydantic module.
     Args:
@@ -24,6 +25,21 @@ class ZenohConfig(ConfZ):
     
     if config != "":
         CONFIG_SOURCES = ConfZFileSource(folder=Path(config))
+
+class ZenohConfig:
+    def __init__(self, **kwargs):
+        self.obj = ZenohValidator(**kwargs)
+        self.conf = zenoh.Config.from_file(
+        self.obj.config) if self.obj.config != "" else zenoh.Config()
+        if self.obj.mode != "":
+            self.conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.obj.mode))
+        if self.obj.connect != "":
+            self.conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.obj.connect))
+        if self.obj.listen != "":
+            self.conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.obj.listen))
+    
+    def zenohconfig(self):
+        return self.conf, self.obj
 
 class EventModel(BaseModel):
     '''

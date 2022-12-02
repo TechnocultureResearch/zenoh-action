@@ -1,31 +1,23 @@
 import pytest
 import zenoh
 from zenoh import QueryTarget
-from validators import ZenohConfig
+from config import ZenohValidator, ZenohConfig
 import json
 from server import Session
 from state_machine import BaseStateMachine
 from pydantic import ValidationError
-from result import Ok, Err
 
 model = Session()
 
-args = ZenohConfig()
-conf = zenoh.Config.from_file(
-    args.config) if args.config != "" else zenoh.Config()
-if args.mode != "":
-    conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
-if args.connect != "":
-    conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
-if args.listen != "":
-    conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
+zenoh_config = ZenohConfig()
+conf_obj, args = zenoh_config.zenohconfig()
 target = {
     'ALL': QueryTarget.ALL(),
     'BEST_MATCHING': QueryTarget.BEST_MATCHING(),
     'ALL_COMPLETE': QueryTarget.ALL_COMPLETE(),}.get('ALL')
 
 zenoh.init_logger()
-session = zenoh.open(conf)    
+session = zenoh.open(conf_obj)    
 statemachine = BaseStateMachine()
 
 @pytest.mark.parametrize("test_input, expected", 

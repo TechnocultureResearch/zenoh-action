@@ -1,8 +1,7 @@
-import json
 import zenoh
-from zenoh import Query, Sample, Reply
+from zenoh import Query, Sample
 from state_machine import StateMachineModel
-from validators import ZenohConfig, EventModel
+from config import ZenohConfig, EventModel, ZenohValidator
 from pydantic import ValidationError
 from result import Ok, Err
 
@@ -10,28 +9,21 @@ class Session:
     '''
     This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
     '''
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         '''
         Initializes the variables.
-        zenohConfig: object of the ZenohConfig class which validates zenoh configuration variables.
+        args: object of the ZenohConfig class which validates zenoh configuration variables.
         session: creates zenoh session.
         trigger_queryable: object of queryable for trigger endpoint.
         statechart_queryable: object of queryable for statechart endpoint.
         statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
         '''
-        self.zenohConfig = ZenohConfig()
-        conf = zenoh.Config.from_file(
-            self.zenohConfig.config) if self.zenohConfig.config != "" else zenoh.Config()
-        if self.zenohConfig.mode != "":
-            conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.zenohConfig.mode))
-        if self.zenohConfig.connect != "":
-            conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.zenohConfig.connect))
-        if self.zenohConfig.listen != "":
-            conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.zenohConfig.listen))
+        zenoh_config = ZenohConfig(**kwargs)
+        conf, self.args = zenoh_config.zenohconfig()
         zenoh.init_logger()
         self.session = zenoh.open(conf)
-        self.trigger_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/trigger', self.trigger_query_handler)
-        self.statechart_queryable = self.session.declare_queryable(self.zenohConfig.base_key_expr+'/statechart', self.statechart_query_handler)
+        self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+'/trigger', self.trigger_query_handler)
+        self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+'/statechart', self.statechart_query_handler)
         self.statemachine = StateMachineModel()
 
     def trigger_query_handler(self, query: Query) -> None:
@@ -49,10 +41,10 @@ class Session:
             validator = EventModel(**query.selector.decode_parameters())
             self.statemachine.event_trigger(validator.event)
             payload = {'reponse_code':'accepted', 'message':'Trigger is accepted and triggered'}
-            Ok(query.reply(Sample(self.zenohConfig.base_key_expr+"/trigger", payload)))
+            Ok(query.reply(Sample(self.args.base_key_expr+"/trigger", payload)))
         except (ValidationError, ValueError) as error:
             payload = {"reponse_code":"rejected", "message":"{}".format(error)}
-            Err(query.reply((Sample(self.zenohConfig.base_key_expr+"/trigger", payload))))
+            Err(query.reply((Sample(self.args.base_key_expr+"/trigger", payload))))
             
     def statechart_query_handler(self, query: Query):
         '''
@@ -66,8 +58,8 @@ class Session:
         '''
         try:
             markup_statechart = self.statemachine.statechart()
-            query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", markup_statechart))
+            query.reply(Sample(self.args.base_key_expr+"/statechart", markup_statechart))
         except ValueError as error:
             payload = {'Error': "{}".format(error)}
-            Err(query.reply(Sample(self.zenohConfig.base_key_expr+"/statechart", payload)))
+            Err(query.reply(Sample(self.args.base_key_expr+"/statechart", payload)))
             

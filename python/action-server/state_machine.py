@@ -1,8 +1,7 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
-from transitions.extensions import GraphMachine
 import json
-from validators import ZenohConfig
+from config import ZenohConfig
 import zenoh
 
 '''
@@ -13,16 +12,7 @@ Global variables:
     session: object to create a session.
     pub: object for publisher to publish executed state on zenohd.
 '''
-args = ZenohConfig()
-conf = zenoh.Config.from_file(
-    args.config) if args.config != "" else zenoh.Config()
-if args.mode != "":
-    conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
-if args.connect != "":
-    conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
-if args.listen != "":
-    conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
-    
+conf, args = ZenohConfig().zenohconfig()
 zenoh.init_logger()
 session = zenoh.open(conf) 
 pub = session.declare_publisher(args.base_key_expr+"/state")
