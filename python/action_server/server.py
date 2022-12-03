@@ -62,4 +62,11 @@ class Session:
         except ValueError as error:
             payload = {'Error': "{}".format(error)}
             Err(query.reply(Sample(self.args.base_key_expr+"/statechart", payload)))
-            
+
+if __name__ == "__main__":
+    """
+    Creates session object and runs the session.
+    """
+
+    session = Session()
+    

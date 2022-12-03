@@ -3,15 +3,11 @@ import './App.css';
 import axios from 'axios';
 import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import  {createMachine} from "xstate";
-import StateMachine from "./python/action-server/statechart.json";
-import action from "./data/action.json";
+
 
 const actionsList = new Set(action.actions);
 const statesList = new Set(action.states);
 const endpointsList = new Set([...actionsList, ...statesList, "listen"]);
-
-const machine = createMachine(StateMachine)
 
 const url = action.base_url;
 const key_expression = action.key_expression;

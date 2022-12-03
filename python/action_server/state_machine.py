@@ -151,4 +151,3 @@ class StateMachineModel:
             event_trigger()
         except AttributeError as error:
             raise AttributeError(error)
-    
