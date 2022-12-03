@@ -45,7 +45,6 @@ class ZenohConfig:
             self.conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.obj.connect))
         if self.obj.listen != "":
             self.conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.obj.listen))
-    
     def zenohconfig(self):
         '''
         Returns the zenoh configuration object and validated arguments.
@@ -98,3 +97,5 @@ class EventModel(BaseModel):
         if v not in event_list:
             raise ValueError('Event is not valid or you are not allowed to trigger event.')
         return v
+
+model = ZenohConfig()
