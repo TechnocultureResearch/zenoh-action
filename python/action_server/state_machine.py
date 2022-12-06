@@ -72,8 +72,7 @@ class Healthy(HierarchicalMachine):
         unhealthy = Unhealthy()
         states = [{"name":"busy", 'on_enter':[]},
                     {"name":"done", 'on_enter':[]},
-                    {"name":"awaitingclearance", 'on_enter':[]}, 
-                    {"name":"unhealthy", "children":unhealthy}]
+                    {"name":"awaitingclearance", 'on_enter':[]}]
 
         transitions = [{"trigger":"done", "source":"busy", "dest":"done"},
                         {"trigger":"awaitingclearance", "source":"done", "dest":"awaitingclearance"},
