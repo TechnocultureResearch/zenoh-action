@@ -1,6 +1,5 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
-from transitions.extensions import GraphMachine
 import json
 from config import ZenohConfig
 import zenoh
@@ -36,17 +35,54 @@ class Unhealthy(HierarchicalMachine):
             send_event: send current executing event to model.
         '''
         states = [
-                    {"name":"awaitingclearanceerr", 'on_enter':[]},
-                    {"name":"cleared", 'on_enter':[]},
-                    {"name":"brokenwithholdings", 'on_enter':[]},
-                    {"name":"brokenwithoutholdings", 'on_enter':[]},
-                    {"name":"dead"}]
-        transitions = [{"trigger":"iawaitingclearanceerr", "source":"abort", "dest":"awaitingclearanceerr"},
-                        {"trigger":"iclearancetimeout", "source":"awaitingclearance", "dest":"awaitingclearanceerr"},
-                        {"trigger":"iawaitingclearanceerr", "source":"awaitingclearanceerr", "dest":"clearancetimeout"},
-                        {"trigger":"icleared", "source":"awaitingclearanceerr", "dest":"cleared"},
-                        {"trigger":"ibrokenwithoutholdings", "source":"cleared", "dest":"brokenwithoutholdings"},
-                        {"trigger":"ibrokenwithholdings", "source":"awaitingclearanceerr", "dest":"brokenwithholdings"}]
+             {
+                "name": "awaitingclearanceerr"
+             },
+             {
+                "name": "cleared"
+             },
+             {
+                "name": "brokenwithholdings"
+             },
+             {
+                "name": "brokenwithoutholdings"
+             },
+             {
+                "name": "dead"
+             }
+          ]
+        transitions = [
+             {
+                "source": "abort",
+                "dest": "awaitingclearanceerr",
+                "trigger": "iawaitingclearanceerr"
+             },
+            {
+                "source": "awaitingclearance",
+                "dest": "awaitingclearanceerr",
+                "trigger": "iclearancetimeout"
+             },
+             {
+                "source": "awaitingclearanceerr",
+                "dest": "clearancetimeout",
+                "trigger": "iawaitingclearanceerr"
+             },
+             {
+                "source": "awaitingclearanceerr",
+                "dest": "cleared",
+                "trigger": "icleared"
+             },
+             {
+                "source": "cleared",
+                "dest": "brokenwithoutholdings",
+                "trigger": "ibrokenwithoutholdings"
+             },
+             {
+                "source": "awaitingclearanceerr",
+                "dest": "brokenwithholdings",
+                "trigger": "ibrokenwithholdings"
+             }
+          ]
         super().__init__(self, states=states, transitions=transitions, initial="awaitingclearanceerr", queued=QUEUED, after_state_change='publish_state', send_event=True)
     
     def publish_state(self, event_data):
@@ -70,17 +106,52 @@ class Healthy(HierarchicalMachine):
             after_state_change: callback to call after every state change.
             send_event: send current executing event to model.
         '''
-        states = [{"name":"busy", 'on_enter':[]},
-                    {"name":"done", 'on_enter':[]},
-                    {"name":"awaitingclearance", 'on_enter':[]},
-                    {"name":"clearncetimeout", 'on_enter':[]},
-                    {"name":"abort", "on_enter":[]}]
+        unhealthy = Unhealthy()
+        states = [
+             {
+                "name": "busy"
+             },
+             {
+                "name": "done"
+             },
+             {
+                "name": "awaitingclearance"
+             },
+             {
+                "name": "clearncetimeout"
+             },
+             {
+                "name": "abort"
+             }
+          ]
 
-        transitions = [{"trigger":"done", "source":"busy", "dest":"done"},
-                        {"trigger":"iabort", "source":"done", "dest":"abort"},
-                        {"trigger":"abort", "source":"busy", "dest":"abort"},
-                        {"trigger":"iawaitingclearance", "source":"abort", "dest":"awaitingclearance"},
-                        {"trigger":"idle", "source":"awaitingclearance", "dest":"idle"}]
+        transitions = [
+             {
+                "source": "busy",
+                "dest": "done",
+                "trigger": "done"
+             },
+             {
+                "source": "done",
+                "dest": "abort",
+                "trigger": "iabort"
+             },
+             {
+                "source": "busy",
+                "dest": "abort",
+                "trigger": "abort"
+             },
+             {
+                "source": "abort",
+                "dest": "awaitingclearance",
+                "trigger": "iawaitingclearance"
+             },
+             {
+                "source": "awaitingclearance",
+                "dest": "idle",
+                "trigger": "idle"
+             }
+          ]
         super().__init__(model=self, states=states, transitions=transitions, initial="busy", queued=QUEUED, after_state_change='publish_state', send_event=True)
     
     def publish_state(self, event_data):
@@ -107,7 +178,7 @@ class BaseStateMachine(HierarchicalMachine,MarkupMachine):
         healthy = Healthy()
         states = [{'name':"idle"}, {"name":'healthy', 'children':healthy}, {"name":"unhealthy", "children":unhealthy}]
         super().__init__(model=self, states=states, initial="idle", queued=QUEUED, after_state_change='publish_state', send_event=True)
-        self.add_transition("start", "idle", "busy")
+        self.add_transition("start", "idle", "healthy")
         self.add_transition("idead", "brokenwithholdings", "dead")
         self.add_transition("idead", "brokenwithoutholdings", "dead")
 

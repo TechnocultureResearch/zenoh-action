@@ -58,7 +58,7 @@ class Session:
         '''
         try:
             markup_statechart = self.statemachine.statechart()
-            query.reply(Sample(self.args.base_key_expr+"/statechart", markup_statechart))
+            Ok(query.reply(Sample(self.args.base_key_expr+"/statechart", markup_statechart)))
         except ValueError as error:
             payload = {'Error': "{}".format(error)}
             Err(query.reply(Sample(self.args.base_key_expr+"/statechart", payload)))
