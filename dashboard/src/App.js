@@ -1,11 +1,14 @@
+
 import { useState, useEffect } from "react";
 import './App.css';
 import axios from 'axios';
 import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Graphviz from 'graphviz-react';
+
 import action from "./data/action.json";
-import statechart from "./data/statechart.json";
+
+import Graphviz from 'graphviz-react';
+import statechart from './data/statechart.json';
 
 const actionsList = new Set(action.actions);
 const statesList = new Set(action.states);
@@ -23,6 +26,52 @@ function endpoint_url(endpoint = "") {
         throw TypeError(`Declaration for Endpoint(${endpoint}) is not present in the action.json file`);
     }
 }
+
+const ActionComponent = () => {
+    let [actionStatus, setStatus] = useState("Unknown");
+
+    useEffect(() => {
+        const sse = new EventSource(endpoint_url("status"));
+
+        sse.addEventListener("PUT", (e) => {
+            const value = JSON.parse(e.data).value;
+            if (value !== actionStatus) {
+                setStatus(value); 
+            }
+        });
+    });
+
+    const postAction = async action => {
+        if (actionsList.has(action)) {
+            try {
+                const response = await axios.post(endpoint_url(action));
+                toast.success(`Action dispatched: ${action}`);
+                return response.data;
+            } catch (error) {
+                toast.error(error.message);
+                throw error;
+            } 
+        } else {
+            const errmsg = `Action(${action}) not supported.`;
+            toast.error(errmsg);
+            throw errmsg;
+        }
+    };
+
+    return (
+        <div>
+            <h3>Status</h3>
+            <p>{actionStatus}</p>
+
+            <h3>Action Buttons</h3>
+            <button onClick={() => postAction("start")}>Start</button>
+            <button onClick={() => postAction("stop")}>Stop</button>
+
+            <button onClick={() => postAction("hello")}>Hello</button>
+        </div>
+    );
+}
+
 
 function states(json) {
 	let _states = {};
@@ -92,7 +141,7 @@ function generateDotFile(json, current_state) {
 	dot += `rankdir=LR;\n`;
 	dot += `Entry [shape="point" label=""]`;
 	dot += `Entry -> ${json.initial}\n`;
-  	dot += `${json.initial} [shape=ellipse, color=red, fillcolor= orangered3, fontcolor=black, style=filled]; \n`;
+  dot += `${json.initial} [shape=ellipse, color=red, fillcolor= orangered3, fontcolor=black, style=filled]; \n`;
 	// Approach 1: Build some data structures, then draw
 	let state_dict = states(statechart);
 	let transition_list = transitions(statechart);
@@ -124,61 +173,16 @@ function generateDotFile(json, current_state) {
 		dot += transitionToStr(transition, state_dict);
 	})
 
+	// Approach 2: Draw while we parse
+	// dot += subStates(json, "idle");
+
 	dot += "}\n";
 	return dot;
 }
 
-const ActionComponent = () => {
-    let [actionStatus, setStatus] = useState("Unknown");
-
-    useEffect(() => {
-        const sse = new EventSource(endpoint_url("listen"));
-
-        sse.addEventListener("PUT", (e) => {
-            const value = JSON.parse(e.data).value;
-            if (value !== actionStatus) {
-                setStatus(value); 
-            }
-        });
-    });
-
-    const postAction = async (action, payload = '') => {
-        if (actionsList.has(action)) {
-            try {
-                const response = await axios.post(endpoint_url(action), payload, {
-                    headers: {
-                        'Content-Type': 'application/text'
-                    }
-                });
-                toast.success(`Action dispatched: ${action}`);
-                return response.data;
-            } catch (error) {
-                toast.error(error.message);
-                throw error;
-            } 
-        } else {
-            const errmsg = `Action(${action}) not supported.`;
-            toast.error(errmsg);
-            throw errmsg;
-        }
-    };
-
-    return (
-        <div>
-            <h3>Status</h3>
-            <p>{actionStatus}</p>
-
-            <h3>Action Buttons</h3>
-            <button onClick={() => postAction("start", "started")}>Start</button>
-            <button onClick={() => postAction("stop", "stopped")}>Stop</button>
-
-            <button onClick={() => postAction("hello")}>Hello</button>
-        </div>
-    );
-}
-
 function App() {
-    const dot = generateDotFile(statechart, "busy");
+	const dot = generateDotFile(statechart, current_state);
+	console.log(dot);
   return (
     <div className="App">
         <header className="App-header">
@@ -186,10 +190,7 @@ function App() {
             <h3>Action Endpoint</h3>
             <p>{endpoint_url()}</p>
         </header>
-		<div>
-			<Graphviz dot={dot} />
-			<p>{dot}</p>
-		</div>
+		
         <ToastContainer 
             autoClose={1000}
             transition={Flip}
@@ -199,6 +200,7 @@ function App() {
             pauseOnHover={false}
         />
         <ActionComponent />
+		<Graphviz dot={dot} options={{width: 1000, height: 1000}} />
     </div>
   );
 }
