@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import './App.css';
 import axios from 'axios';
@@ -10,9 +9,9 @@ import action from "./data/action.json";
 import Graphviz from 'graphviz-react';
 import statechart from './data/statechart.json';
 
-const actionsList = new Set(action.actions);
-const statesList = new Set(action.states);
-const endpointsList = new Set([...actionsList, ...statesList, "status"]);
+//const actionsList = new Set(action.actions);
+//const statesList = new Set(action.states);
+const endpointsList = new Set(["trigger", "statechart", "status"]);
 
 const url = action.base_url;
 const key_expression = action.key_expression;
@@ -21,7 +20,7 @@ function endpoint_url(endpoint = "") {
     if (endpointsList.has(endpoint)) {
         return `${url}/${key_expression}/${endpoint}`;
     } else if (endpoint === "") {
-        return `${url}/${key_expression}`;
+        throw TypeError(`Endpoint can't be empty.`);
     } else {
         throw TypeError(`Declaration for Endpoint(${endpoint}) is not present in the action.json file`);
     }
@@ -42,20 +41,17 @@ const ActionComponent = () => {
     });
 
     const postAction = async action => {
-        if (actionsList.has(action)) {
-            try {
-                const response = await axios.post(endpoint_url(action));
-                toast.success(`Action dispatched: ${action}`);
-                return response.data;
-            } catch (error) {
-                toast.error(error.message);
-                throw error;
-            } 
-        } else {
-            const errmsg = `Action(${action}) not supported.`;
-            toast.error(errmsg);
-            throw errmsg;
-        }
+        try {
+			const response = await axios.post(endpoint_url(action));
+			toast.success(`Action dispatched: ${action}`);
+			var payload = document.createElement('div');
+			payload.innerHTML = 'Reply: ' + response.data.payload;
+			document.body.appendChild(payload);
+			return response.data;
+		} catch (error) {
+			toast.error(error.message);
+			throw error;
+		} 
     };
 
     return (
@@ -146,8 +142,8 @@ function generateDotFile(json, current_state) {
 	let state_dict = states(statechart);
 	let transition_list = transitions(statechart);
 
-	console.log(state_dict)
-	console.log(transition_list);
+	//console.log(state_dict)
+	//console.log(transition_list);
 
 	const clusters = [];
 	Object.entries(state_dict)
@@ -182,7 +178,7 @@ function generateDotFile(json, current_state) {
 
 function App() {
 	const dot = generateDotFile(statechart, current_state);
-	console.log(dot);
+	//console.log(dot);
   return (
     <div className="App">
         <header className="App-header">
