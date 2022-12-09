@@ -47,7 +47,9 @@ const ActionComponent = () => {
 			var payload = document.createElement('div');
 			payload.innerHTML = 'Reply: ' + response.data.payload;
 			document.body.appendChild(payload);
-			return response.data;
+			return (
+				response.data.payload
+				);
 		} catch (error) {
 			toast.error(error.message);
 			throw error;
@@ -60,10 +62,10 @@ const ActionComponent = () => {
             <p>{actionStatus}</p>
 
             <h3>Action Buttons</h3>
-            <button onClick={() => postAction("start")}>Start</button>
-            <button onClick={() => postAction("stop")}>Stop</button>
-
-            <button onClick={() => postAction("hello")}>Hello</button>
+            <button onClick={() => postAction(`trigger?timestamp=${Date.now()}&event=start`)}>Start</button>
+            <button onClick={() => postAction(`trigger?timestamp=${Date.now()}&event=abort`)}>Stop</button>
+			<button onClick={() => postAction('status')}>State</button>
+            <button onClick={() => postAction("statechart")}>Statechart</button>
         </div>
     );
 }
