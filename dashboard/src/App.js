@@ -33,7 +33,7 @@ const ActionComponent = () => {
         const sse = new EventSource(endpoint_url("status"));
 
         sse.addEventListener("PUT", (e) => {
-            const value = JSON.parse(e.data).value;
+            const value = JSN.parse(e.data).value;
             if (value !== actionStatus) {
                 setStatus(value); 
             }
@@ -48,7 +48,7 @@ const ActionComponent = () => {
 			payload.innerHTML = 'Reply: ' + response.data.payload;
 			document.body.appendChild(payload);
 			return (
-				response.data.payload
+				response.data
 				);
 		} catch (error) {
 			toast.error(error.message);
@@ -179,8 +179,7 @@ function generateDotFile(json, current_state) {
 }
 
 function App() {
-	const dot = generateDotFile(statechart, current_state);
-	//console.log(dot);
+	
   return (
     <div className="App">
         <header className="App-header">
