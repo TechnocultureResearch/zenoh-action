@@ -3,9 +3,25 @@ import sys
 import time
 from zenoh import Query, Sample
 from state_machine import StateMachineModel
-from config import ZenohConfig, EventModel, ZenohValidator
+from config import ZenohConfig, EventModel
 from pydantic import ValidationError
 from result import Ok, Err
+from contextlib import contextmanager
+
+@contextmanager
+def context_manager():
+    '''
+    This function creates a session object and closes it when the context is exited.
+    '''
+    try:
+        session = Session()
+        yield session
+    except KeyboardInterrupt:
+        print("Interrupted by user")
+        sys.exit(0)
+    finally:
+        session.__exit__()
+        print("server closed")
 
 class Session:
     '''
@@ -21,12 +37,25 @@ class Session:
         statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
         '''
         zenoh_config = ZenohConfig(**kwargs)
-        conf, self.args = zenoh_config.zenohconfig()
-        zenoh.init_logger()
-        self.session = zenoh.open(conf)
-        self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+'/trigger', self.trigger_query_handler)
-        self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+'/statechart', self.statechart_query_handler)
+        self.conf, self.args = zenoh_config.zenohconfig()
         self.statemachine = StateMachineModel()
+        self.__enter__()
+
+    def __enter__(self):
+        '''
+        Creates a zenoh session and registers queryables.
+        '''
+        self.session = zenoh.open(self.conf)
+        self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler)
+        self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler)
+
+    def __exit__(self):
+        '''
+        Closes the zenoh session.
+        '''
+        self.trigger_queryable.undeclare()
+        self.statechart_queryable.undeclare()
+        self.session.close()
 
     def trigger_query_handler(self, query: Query) -> None:
         '''
@@ -69,11 +98,8 @@ if __name__ == "__main__":
     """
     Creates session object and runs the session.
     """
-
-    with Session() as session:
-      print("Enter 'q' to quit...")
-      c = '\0'
-      while c != 'q':
-          c = sys.stdin.read(1)
-          if c == '':
-              time.sleep(1)
+    with context_manager() as session:
+        print("server open")
+        while True:
+            print("server running")
+            time.sleep(1)
