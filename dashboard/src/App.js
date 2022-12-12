@@ -3,11 +3,9 @@ import './App.css';
 import axios from 'axios';
 import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Graphviz from 'graphviz-react';
 
 import action from "./data/action.json";
-
-import Graphviz from 'graphviz-react';
-import statechart from './data/statechart.json';
 
 //const actionsList = new Set(action.actions);
 //const statesList = new Set(action.states);
@@ -17,13 +15,15 @@ const url = action.base_url;
 const key_expression = action.key_expression;
 
 function endpoint_url(endpoint = "") {
-    if (endpointsList.has(endpoint)) {
-        return `${url}/${key_expression}/${endpoint}`;
-    } else if (endpoint === "") {
-        throw TypeError(`Endpoint can't be empty.`);
-    } else {
-        throw TypeError(`Declaration for Endpoint(${endpoint}) is not present in the action.json file`);
+    let _endpoint = endpoint.split("?")[0] || endpoint;
+
+    if (_endpoint === "") {
+        return `${url}/${key_expression}`;
+    } else if (!endpointsList.has(_endpoint)) {
+        throw TypeError(`Endpoint(${endpoint}) is not acceptable.`);
     }
+
+    return `${url}/${key_expression}/${endpoint}`;
 }
 
 const ActionComponent = () => {
@@ -33,7 +33,7 @@ const ActionComponent = () => {
         const sse = new EventSource(endpoint_url("status"));
 
         sse.addEventListener("PUT", (e) => {
-            const value = JSN.parse(e.data).value;
+            const value = JSON.parse(e.data).value;
             if (value !== actionStatus) {
                 setStatus(value); 
             }
@@ -43,13 +43,7 @@ const ActionComponent = () => {
     const postAction = async action => {
         try {
 			const response = await axios.post(endpoint_url(action));
-			toast.success(`Action dispatched: ${action}`);
-			var payload = document.createElement('div');
-			payload.innerHTML = 'Reply: ' + response.data.payload;
-			document.body.appendChild(payload);
-			return (
-				response.data
-				);
+			toast.success(`Action dispatched: ${action}\n${response.data.payload}`);
 		} catch (error) {
 			toast.error(error.message);
 			throw error;
@@ -74,12 +68,12 @@ const ActionComponent = () => {
 function states(json) {
 	let _states = {};
 
-	json.states.map(state => {
-		_states[state.name] = (state.children && state.children.length != 0) || false;
+	json.states.forEach(state => {
+		_states[state.name] = (state.children && state.children.length !== 0) || false;
 
 		if (state.children) {
-			state.children.map(child => {
-				_states[child.name] = (child.children && child.children.length != 0) || false;
+			state.children.forEach(child => {
+				_states[child.name] = (child.children && child.children.length !== 0) || false;
 			});
 		}
 	});
@@ -87,19 +81,16 @@ function states(json) {
 	return _states;
 }
 
-function children_of(json, state) {
-	return [];
-}
 function transitions(json) {
 	let _transitions = [];
 
-	json.transitions.map(transition => {
+	json.transitions.forEach(transition => {
 		_transitions.push(transition)
 	})
 
-	json.states.map(state => {
-		state.children && state.children.map(substate => {
-			substate.transitions && substate.transitions.map(transition => {
+	json.states.forEach(state => {
+		state.children && state.children.forEach(substate => {
+			substate.transitions && substate.transitions.forEach(transition => {
 				_transitions.push(transition)
 			})
 		})
@@ -111,9 +102,9 @@ function transitions(json) {
 
 function childtransitionToStr(json, cluster) {
 	let child_transition = "";
-	json.states.map(state => {
-		if (cluster == state.name) {
-			state.transitions.map(transition => {
+	json.states.forEach(state => {
+		if (cluster === state.name) {
+			state.transitions.forEach(transition => {
 				child_transition += transitionToStr(transition, cluster);
 			});
     }
@@ -124,11 +115,9 @@ function childtransitionToStr(json, cluster) {
 function transitionToStr(transition, state_list) {
 	let cluster_label = "";
 	if (state_list[transition.dest]) {
-		// console.log(`${transition.dest} has children.`);
 		cluster_label += `, ltail=${transition.dest}`;
 	}
 	if (state_list[transition.source]) {
-		// console.log(`${transition.source} has children.`);
 		cluster_label += `, lhead=${transition.source}`;
 	}
 	return `"${transition.source}" -> "${transition.dest}" [label="${transition.trigger} ${cluster_label}"]\n`;
@@ -144,30 +133,26 @@ function generateDotFile(json, current_state) {
 	let state_dict = states(statechart);
 	let transition_list = transitions(statechart);
 
-	//console.log(state_dict)
-	//console.log(transition_list);
-
 	const clusters = [];
 	Object.entries(state_dict)
 		.filter(([k, v]) => v === true)
-		.map(arr => clusters.push(arr[0]));
-	console.log(clusters);
+		.forEach(arr => clusters.push(arr[0]));
 
-	clusters.map(cluster => {
+	clusters.forEach(cluster => {
 		dot += `subgraph cluster_${cluster} {\n`;
     dot += `${current_state} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
 		dot +=   childtransitionToStr(json, cluster);
 		dot += ` label=${cluster}\n`;
 
-		children_of(cluster).map(state => {
-			dot += `  ${state}\n`;
+	//	children_of(cluster).forEach(state => {
+	//		dot += `  ${state}\n`;
 
-		})
+	//	})
 
 		dot += `}\n`;
 	})
 
-	transition_list.map(transition => {
+	transition_list.forEach(transition => {
 		dot += transitionToStr(transition, state_dict);
 	})
 
@@ -179,7 +164,8 @@ function generateDotFile(json, current_state) {
 }
 
 function App() {
-	
+  const dot = generateDotFile(statechart, "idle");
+
   return (
     <div className="App">
         <header className="App-header">

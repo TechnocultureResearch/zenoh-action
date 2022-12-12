@@ -1,4 +1,6 @@
 import zenoh
+import sys
+import time
 from zenoh import Query, Sample
 from state_machine import StateMachineModel
 from config import ZenohConfig, EventModel, ZenohValidator
@@ -68,5 +70,10 @@ if __name__ == "__main__":
     Creates session object and runs the session.
     """
 
-    session = Session()
-    
+    with Session() as session:
+      print("Enter 'q' to quit...")
+      c = '\0'
+      while c != 'q':
+          c = sys.stdin.read(1)
+          if c == '':
+              time.sleep(1)

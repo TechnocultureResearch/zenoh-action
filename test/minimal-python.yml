@@ -22,10 +22,7 @@ services:
      ports:
        - 7447:7447
        - 8000:8000
-     volumes:
-       - ./config:/root/.zenoh
      environment:
        - RUST_LOG=debug
-     command: -c /root/.zenoh/local_router.json
      restart: unless-stopped
 
