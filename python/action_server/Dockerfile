@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.11
 
 RUN pip install --upgrade pip
 RUN pip install pipenv
@@ -10,4 +10,4 @@ RUN pipenv install --system --deploy
 
 COPY . .
 
-CMD ["python", "server.py"]
+CMD ["python", "server.py", "-e", "tcp/localhost:7447"]

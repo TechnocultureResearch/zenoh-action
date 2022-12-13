@@ -14,7 +14,7 @@ services:
     depends_on:
       - action-server
     ports:
-      - "3000:3000"
+      - 3000:3000
     restart: unless-stopped
 
   local-zenoh-router:

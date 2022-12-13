@@ -7,9 +7,13 @@ from config import ZenohConfig, EventModel
 from pydantic import ValidationError
 from result import Ok, Err
 from contextlib import contextmanager
+from typing import Self
+import logging
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 @contextmanager
-def context_manager():
+def session_manager():
     '''
     This function creates a session object and closes it when the context is exited.
     '''
@@ -20,14 +24,14 @@ def context_manager():
         print("Interrupted by user")
         sys.exit(0)
     finally:
-        session.__exit__()
+        session.close()
         print("server closed")
 
 class Session:
     '''
     This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
     '''
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs) -> 'Self':
         '''
         Initializes the variables.
         args: object of the ZenohConfig class which validates zenoh configuration variables.
@@ -39,9 +43,9 @@ class Session:
         zenoh_config = ZenohConfig(**kwargs)
         self.conf, self.args = zenoh_config.zenohconfig()
         self.statemachine = StateMachineModel()
-        self.__enter__()
+        self.open()
 
-    def __enter__(self):
+    def open(self):
         '''
         Creates a zenoh session and registers queryables.
         '''
@@ -49,7 +53,7 @@ class Session:
         self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler)
         self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler)
 
-    def __exit__(self):
+    def close(self):
         '''
         Closes the zenoh session.
         '''
@@ -98,8 +102,8 @@ if __name__ == "__main__":
     """
     Creates session object and runs the session.
     """
-    with context_manager() as session:
-        print("server open")
+    with session_manager() as session:
+        logging.debug("server open")
         while True:
-            print("server running")
+            # logging.debug("server running")
             time.sleep(1)
