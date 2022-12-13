@@ -1,17 +1,16 @@
 import zenoh
 import sys
 import time
-from zenoh import Query, Sample, Reply
+from zenoh import Query, Sample
 from state_machine import StateMachineModel
 from config import ZenohConfig, EventModel
 from pydantic import ValidationError
 from contextlib import contextmanager
-from typing import Self
 import logging
 
 logging.getLogger().setLevel(logging.DEBUG)
 
-
+zenoh.init_logger()
 @contextmanager
 def session_manager():
     '''
@@ -21,19 +20,18 @@ def session_manager():
         session = Session()
         yield session
     except KeyboardInterrupt:
-        print("Interrupted by user")
+        logging.error("Interrupted by user")
         sys.exit(0)
     finally:
         session.close()
-        print("server closed")
-
+        logging.debug("server closed")
 
 class Session:
     '''
     This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
     '''
 
-    def __init__(self, **kwargs) -> 'Self':
+    def __init__(self, **kwargs):
         '''
         Initializes the variables.
         args: object of the ZenohConfig class which validates zenoh configuration variables.
@@ -51,11 +49,12 @@ class Session:
         trigger_queryable: object of queryable for trigger endpoint.
         statechart_queryable: object of queryable for statechart endpoint.
         '''
+        logging.debug("Opening session")
         self.session = zenoh.open(self.conf)
-        self.trigger_queryable = self.session.declare_queryable(
-            self.args.base_key_expr+"/trigger", self.trigger_query_handler)
-        self.statechart_queryable = self.session.declare_queryable(
-            self.args.base_key_expr+"/statechart", self.statechart_query_handler)
+        logging.debug("declaring queryable")
+        self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler, self.args.complete)
+        logging.debug("declaring queryable")
+        self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler, self.args.complete)
 
     def close(self):
         '''
@@ -76,7 +75,7 @@ class Session:
             Replies a err query with payload in json format with keys response_code and message containing error, if any err arises.
         '''
         try:
-            print(">> [Queryable ] Received Query '{}'".format(query.selector))
+            logging.debug(">> [Queryable ] Received Query '{}'".format(query.selector))
             validator = EventModel(**query.selector.decode_parameters())
             self.statemachine.event_trigger(validator.event)
             payload = {'response_code': 'accepted',
@@ -98,6 +97,7 @@ class Session:
             Replies a err query with payload in json format containing error, if any err arises.
         '''
         try:
+            logging.debug(">> [Queryable ] Received Query '{}'".format(query.selector))
             markup_statechart = self.statemachine.statechart()
             payload = {'response_code': 'accepted',
                        'message': '{}'.format(markup_statechart)}
@@ -116,5 +116,4 @@ if __name__ == "__main__":
     with session_manager() as session:
         logging.debug("server open")
         while True:
-            # logging.debug("server running")
             time.sleep(1)

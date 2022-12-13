@@ -3,6 +3,9 @@ from transitions.extensions.factory import HierarchicalMachine
 import json
 from config import ZenohConfig
 import zenoh
+import logging
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 '''
 Global variables:
@@ -14,7 +17,7 @@ Global variables:
 '''
 conf, args = ZenohConfig().zenohconfig()
 zenoh.init_logger()
-session = zenoh.open(conf) 
+session = zenoh.open(conf)
 pub = session.declare_publisher(args.base_key_expr+"/state")
 QUEUED = False
 

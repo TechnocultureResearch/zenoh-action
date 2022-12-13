@@ -1,5 +1,5 @@
 {
-    "base_url": "https://localhost:8000",
+    "base_url": "http://localhost:8000",
     "key_expression": "Genotyper/1/DNASensor/1",
     "actions": [ 
         "start", 

@@ -1,5 +1,5 @@
 from confz import ConfZ, ConfZFileSource
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 from pathlib import Path
 from datetime import datetime
 import zenoh
@@ -17,14 +17,16 @@ class ZenohValidator(ConfZ):
         config(str): a configuration file for zenoh variables.
         base_key_expr(str): a common keyexpression to use. 
     '''
-    mode: str = 'peer'
-    connect: str = ""
-    listen: str = ""
-    config: str = ""
+    mode: str = Field(dest="mode", choices=["peer", "client"], default="", description="The zenoh session mode.")
+    connect: str = Field(dest="connect",metavar="ENDPOINT", action="append", default="", description="Endpoints to connect to.")
+    listen: str = Field(dest="listen", metavar="ENDPOINT", action="append", default="", description="Endpoints to listen on.")
+    config: str = Field(dest="config", metavar="FILE", default="", description="A configuration file.")
     base_key_expr: str = "Genotyper/1/DNAsensor/1"
-    
+    complete: bool = Field(dest="complete", default=False, action="store_true", description="Declare the storage as complete w.r.t. the key expression.")
+
+    '''
     if config != "":
-        CONFIG_SOURCES = ConfZFileSource(folder=Path(config))
+        CONFIG_SOURCES = ConfZFileSource(folder=Path(config))'''
 
 class ZenohConfig:
     '''
@@ -36,15 +38,15 @@ class ZenohConfig:
         Args:
             A dict of arguments.
         '''
-        self.obj = ZenohValidator(**kwargs)
+        self.args = ZenohValidator(**kwargs)
         self.conf = zenoh.Config.from_file(
-        self.obj.config) if self.obj.config != "" else zenoh.Config()
-        if self.obj.mode != "":
-            self.conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.obj.mode))
-        if self.obj.connect != "":
-            self.conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.obj.connect))
-        if self.obj.listen != "":
-            self.conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.obj.listen))
+        self.args.config) if self.args.config != "" else zenoh.Config()
+        if self.args.mode != "":
+            self.conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.args.mode))
+        if self.args.connect != "":
+            self.conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.args.connect))
+        if self.args.listen != "":
+            self.conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.args.listen))
     def zenohconfig(self):
         '''
         Returns the zenoh configuration object and validated arguments.
@@ -53,7 +55,7 @@ class ZenohConfig:
         Returns:
             A tuple of zenoh configuration object and validated arguments.
         '''
-        return self.conf, self.obj
+        return self.conf, self.args
 
 class EventModel(BaseModel):
     '''
