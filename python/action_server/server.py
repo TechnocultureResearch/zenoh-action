@@ -1,11 +1,10 @@
 import zenoh
 import sys
 import time
-from zenoh import Query, Sample
+from zenoh import Query, Sample, Reply
 from state_machine import StateMachineModel
 from config import ZenohConfig, EventModel
 from pydantic import ValidationError
-from result import Ok, Err
 from contextlib import contextmanager
 
 @contextmanager
@@ -20,9 +19,7 @@ def context_manager():
         print("Interrupted by user")
         sys.exit(0)
     finally:
-        session.__exit__()
         print("server closed")
-
 class Session:
     '''
     This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
@@ -31,9 +28,6 @@ class Session:
         '''
         Initializes the variables.
         args: object of the ZenohConfig class which validates zenoh configuration variables.
-        session: creates zenoh session.
-        trigger_queryable: object of queryable for trigger endpoint.
-        statechart_queryable: object of queryable for statechart endpoint.
         statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
         '''
         zenoh_config = ZenohConfig(**kwargs)
@@ -44,6 +38,9 @@ class Session:
     def __enter__(self):
         '''
         Creates a zenoh session and registers queryables.
+        session: creates zenoh session.
+        trigger_queryable: object of queryable for trigger endpoint.
+        statechart_queryable: object of queryable for statechart endpoint.
         '''
         self.session = zenoh.open(self.conf)
         self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler)
@@ -71,11 +68,11 @@ class Session:
             print(">> [Queryable ] Received Query '{}'".format(query.selector))
             validator = EventModel(**query.selector.decode_parameters())
             self.statemachine.event_trigger(validator.event)
-            payload = {'reponse_code':'accepted', 'message':'Trigger is accepted and triggered'}
-            Ok(query.reply(Sample(self.args.base_key_expr+"/trigger", payload)))
+            payload = {'response_code':'accepted', 'message':'Trigger is accepted and triggered'}
+            query.reply(Sample(self.args.base_key_expr+"/trigger", payload))
         except (ValidationError, ValueError) as error:
-            payload = {"reponse_code":"rejected", "message":"{}".format(error)}
-            Err(query.reply((Sample(self.args.base_key_expr+"/trigger", payload))))
+            payload = {"response_code":"rejected", "message":"{}".format(error)}
+            query.reply(Sample(self.args.base_key_expr+"/trigger", payload))
             
     def statechart_query_handler(self, query: Query):
         '''
@@ -89,17 +86,16 @@ class Session:
         '''
         try:
             markup_statechart = self.statemachine.statechart()
-            Ok(query.reply(Sample(self.args.base_key_expr+"/statechart", markup_statechart)))
+            payload = {'response_code':'accepted', 'message':'{}'.format(markup_statechart)}
+            query.reply(Sample(self.args.base_key_expr+"/statechart", markup_statechart))
         except ValueError as error:
-            payload = {'Error': "{}".format(error)}
-            Err(query.reply(Sample(self.args.base_key_expr+"/statechart", payload)))
+            payload = {'response_code':'rejected', 'message': "{}".format(error)}
+            query.reply(Sample(self.args.base_key_expr+"/statechart", payload))
 
 if __name__ == "__main__":
     """
     Creates session object and runs the session.
     """
     with context_manager() as session:
-        print("server open")
         while True:
-            print("server running")
             time.sleep(1)

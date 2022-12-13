@@ -140,7 +140,7 @@ function generateDotFile(json, current_state) {
 
 	clusters.forEach(cluster => {
 		dot += `subgraph cluster_${cluster} {\n`;
-    dot += `${current_state} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
+    dot += `${current_state.split("_").pop()} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
 		dot +=   childtransitionToStr(json, cluster);
 		dot += ` label=${cluster}\n`;
 
