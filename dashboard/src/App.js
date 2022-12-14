@@ -40,11 +40,12 @@ const ActionComponent = (statechart, setStatechart) => {
 
     const postAction = async (action, handler = () => { }) => {
         try {
-            const response = await axios.post(endpoint_url(action));
-            toast.success(`Action dispatched: ${action}\n${response.data.payload}`);
+            const response = await axios.get(endpoint_url(action));
+            console.log(response.data[0].value)
+            toast.success(`Action dispatched: ${action}\n${response.data}`);
 
             if (handler) {
-                handler(response.data.payload);
+                handler(response.data[0]);
             }
 
         } catch (error) {
@@ -52,12 +53,11 @@ const ActionComponent = (statechart, setStatechart) => {
             throw error;
         }
     };
-
     const getStatechart = async (setStatechart, currentState) => {
         try {
             const response = await axios.get(endpoint_url("statechart"));
-            console.log(response.data.payload);
-            setStatechart(generateDotFile(response.data.payload, currentState));
+            console.log(response.data[0].value);
+            setStatechart(generateDotFile(response.data[0].value, currentState));
         } catch (error) {
             toast.error(error.message);
             throw error;
@@ -196,7 +196,6 @@ function generateDotFile(json, current_state) {
 function App() {
     const [statechart, setStatechart] = useState({});
     const dot = generateDotFile(statechart, "idle");
-
     return (
         <div className="App">
             <header className="App-header">
@@ -214,7 +213,7 @@ function App() {
                 pauseOnHover={ false }
             />
             <ActionComponent statechart={ statechart } setStatechart={ setStatechart } />
-            <Graphviz dot={ dot } options={ { width: 1000, height: 1000 } } />
+            <Graphviz dot = {dot} options={ { width: 1000, height: 1000 } } />
         </div>
     );
 }
