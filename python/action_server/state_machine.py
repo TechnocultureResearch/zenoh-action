@@ -19,6 +19,7 @@ conf, args = ZenohConfig().zenohconfig()
 zenoh.init_logger()
 session = zenoh.open(conf)
 pub = session.declare_publisher(args.base_key_expr+"/state")
+#logging.debug(pub)
 QUEUED = False
 
 class Unhealthy(HierarchicalMachine):

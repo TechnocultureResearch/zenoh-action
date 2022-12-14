@@ -10,4 +10,4 @@ RUN pipenv install --system --deploy
 
 COPY . .
 
-CMD ["python", "server.py", "-e", "tcp/0.0.0.0:7447"]
+CMD ["python", "server.py", "-e", "tcp/localhost:7447"]

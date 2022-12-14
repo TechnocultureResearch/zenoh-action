@@ -1,5 +1,4 @@
 import zenoh
-import sys
 import time
 from zenoh import Query, Sample
 from state_machine import StateMachineModel
@@ -10,7 +9,6 @@ import logging
 
 logging.getLogger().setLevel(logging.DEBUG)
 
-zenoh.init_logger()
 @contextmanager
 def session_manager():
     '''
@@ -21,10 +19,13 @@ def session_manager():
         yield session
     except KeyboardInterrupt:
         logging.error("Interrupted by user")
-        sys.exit(0)
     finally:
         session.close()
         logging.debug("server closed")
+
+def trigger_handler(query):
+    logging.debug("Trigger handle")
+
 
 class Session:
     '''
@@ -49,11 +50,8 @@ class Session:
         trigger_queryable: object of queryable for trigger endpoint.
         statechart_queryable: object of queryable for statechart endpoint.
         '''
-        logging.debug("Opening session")
         self.session = zenoh.open(self.conf)
-        logging.debug("declaring queryable")
         self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler, self.args.complete)
-        logging.debug("declaring queryable")
         self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler, self.args.complete)
 
     def close(self):
@@ -108,12 +106,13 @@ class Session:
                        'message': "{}".format(error)}
             query.reply(Sample(self.args.base_key_expr+"/statechart", payload))
 
-
 if __name__ == "__main__":
     """
     Creates session object and runs the session.
     """
+
+    zenoh.init_logger()
     with session_manager() as session:
-        logging.debug("server open")
         while True:
             time.sleep(1)
+

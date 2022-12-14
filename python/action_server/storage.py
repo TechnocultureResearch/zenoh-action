@@ -5,7 +5,7 @@ import argparse
 import json
 import zenoh
 from zenoh import Reliability, SampleKind, Query, Sample, KeyExpr
-
+import logging
 # --- Command line argument parsing --- --- --- --- --- ---
 parser = argparse.ArgumentParser(
     prog='z_storage',
@@ -54,21 +54,16 @@ complete = args.complete
 store = {}
 
 
-def listener(sample: Sample):
-    print(">> [Subscriber] Received {} ('{}': '{}')"
-          .format(sample.kind, sample.key_expr, sample.payload.decode("utf-8")))
-    if sample.kind == SampleKind.DELETE():
-        store.pop(sample.key_expr, None)
-    else:
-        store[sample.key_expr] = sample
-
-
 def query_handler(query: Query):
-    print(">> [Queryable ] Received Query '{}'".format(query.selector))
-    replies = []
-    for stored_name, sample in store.items():
-        if query.key_expr.intersects(stored_name):
-            query.reply(sample)
+    try:
+        logging.debug(">> [Queryable ] Received Query '{}'".format(query.selector))
+        payload = {'response_code': 'accepted',
+                    'message': 'Trigger is accepted and triggered'}
+        query.reply(Sample("**/trigger", payload))
+    except (ValueError) as error:
+        payload = {"response_code": "rejected",
+                    "message": "{}".format(error)}
+        query.reply(Sample("**/trigger", payload))
 
 
 # initiate logging
@@ -76,10 +71,6 @@ zenoh.init_logger()
 
 print("Opening session...")
 session = zenoh.open(conf)
-
-print("Declaring Subscriber on '{}'...".format(key))
-sub = session.declare_subscriber(
-    key, listener, reliability=Reliability.RELIABLE())
 
 print("Declaring Queryable on '{}'...".format(key))
 queryable = session.declare_queryable(key, query_handler, complete)

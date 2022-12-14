@@ -5,6 +5,8 @@ from datetime import datetime
 import zenoh
 import json
 
+zenoh.init_logger()
+
 class ZenohValidator(ConfZ):
     '''
     Config module for zenoh configuration. Validates the configuration variables using ConfZ by pydantic module.
@@ -17,11 +19,11 @@ class ZenohValidator(ConfZ):
         config(str): a configuration file for zenoh variables.
         base_key_expr(str): a common keyexpression to use. 
     '''
-    mode: str = Field(dest="mode", choices=["peer", "client"], default="", description="The zenoh session mode.")
+    mode: str = Field(dest="mode", choices=["peer", "client"], default="peer", description="The zenoh session mode.")
     connect: str = Field(dest="connect",metavar="ENDPOINT", action="append", default="", description="Endpoints to connect to.")
     listen: str = Field(dest="listen", metavar="ENDPOINT", action="append", default="", description="Endpoints to listen on.")
     config: str = Field(dest="config", metavar="FILE", default="", description="A configuration file.")
-    base_key_expr: str = "Genotyper/1/DNAsensor/1"
+    base_key_expr: str = "Genotyper/1/DNASensor/1"
     complete: bool = Field(dest="complete", default=False, action="store_true", description="Declare the storage as complete w.r.t. the key expression.")
 
     '''
@@ -99,5 +101,3 @@ class EventModel(BaseModel):
         if v not in event_list:
             raise ValueError('Event is not valid or you are not allowed to trigger event.')
         return v
-
-model = ZenohConfig()
