@@ -227,5 +227,5 @@ class StateMachineModel:
         try:
             event_trigger = getattr(self.statemachine, event)
             event_trigger()
-        except AttributeError as error:
+        except (AttributeError, NameError, MachineError) as error:
             raise AttributeError(error)

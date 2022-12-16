@@ -113,6 +113,7 @@ if __name__ == "__main__":
 
     zenoh.init_logger()
     with session_manager() as session:
+        logging.debug("server started")
         while True:
             time.sleep(1)
 
