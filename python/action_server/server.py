@@ -1,11 +1,12 @@
 import zenoh
 import time
-from zenoh import Query, Sample
+from zenoh import Query, Sample, Encoding
 from state_machine import StateMachineModel
 from config import ZenohConfig, EventModel
 from pydantic import ValidationError
 from contextlib import contextmanager
 import logging
+import json
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -96,9 +97,9 @@ class Session:
         '''
         try:
             logging.debug(">> [Queryable ] Received Query '{}'".format(query.selector))
-            markup_statechart = self.statemachine.statechart()
+            markup_statechart = json.loads(self.statemachine.statechart())
             payload = {'response_code': 'accepted',
-                       'message': '{}'.format(markup_statechart)}
+                       'message': markup_statechart}
             query.reply(Sample(self.args.base_key_expr +
                         "/statechart", markup_statechart))
         except ValueError as error:

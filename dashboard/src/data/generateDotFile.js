@@ -72,22 +72,28 @@ function transitionToStr(transition, state_list) {
     return `"${transition.source}" -> "${transition.dest}" [label="${transition.trigger} ${cluster_label}"]\n`;
 }
 
-function generateDotFile(json, current_state) {
+function generateDotFile(json, currentState = "") {
     let dot = "";
-
-    if (json === undefined) {
-        return dot;
-    }
-    console.log(json);
-    
     dot += "digraph {\n";
     dot += `rankdir=LR;\n`;
+    
+    let _currentState = currentState.split("_").pop() || currentState;
+    
+    if (json === undefined) {
+        dot += '}';
+        return dot;
+    }
+
+    if (Object.keys(json).length === 0){
+        dot += '}';
+        return dot;
+    }
+
     dot += `Entry [shape="point" label=""]`;
     dot += `Entry -> ${json.initial}\n`;
     dot += `${json.initial} [shape=ellipse, color=red, fillcolor= orangered3, fontcolor=black, style=filled]; \n`;
-//    dot += `${current_state.split("_").pop()} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
+    //dot += `${_currentState} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
     
-    // Approach 1: Build some data structures, then draw
     let state_dict = states(json);
     let transition_list = transitions(json);
     
@@ -99,6 +105,7 @@ function generateDotFile(json, current_state) {
 
     clusters.forEach(cluster => {
         dot += `subgraph cluster_${cluster} {\n`;
+        dot += `${_currentState} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
         dot += childtransitionToStr(json, cluster);
         dot += ` label=${cluster}\n`;
 
@@ -110,7 +117,6 @@ function generateDotFile(json, current_state) {
     });
 
     dot += "}\n";
-    console.log(dot);
     return dot;
 }
 

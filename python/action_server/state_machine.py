@@ -1,5 +1,6 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
+from transitions import MachineError
 import json
 from config import ZenohConfig
 import zenoh
@@ -227,5 +228,5 @@ class StateMachineModel:
         try:
             event_trigger = getattr(self.statemachine, event)
             event_trigger()
-        except (AttributeError, NameError, MachineError) as error:
-            raise AttributeError(error)
+        except MachineError as error:
+            raise ValueError("{}".format(error))

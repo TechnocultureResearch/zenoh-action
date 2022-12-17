@@ -13,27 +13,17 @@ const endpointsList = new Set(["trigger", "statechart", "state"]);
 const url = action.base_url;
 const key_expression = action.key_expression;
 
-let dot = generateDotFile({});
+let chart = generateDotFile({});
 const getStatechart = async () => {
     try {
         const response = await axios.get(endpoint_url("statechart"));
-        return response.data[0].value;
+        const dot = generateDotFile(response.data[0].value);
+        return [response.data[0].value, dot];
 
     } catch (error) {
         toast.error(error.message);
         throw error;
     }
-};
-function Sc(){
-    let json = getStatechart().then((data) => {
-        return data;
-    });
-    const [statechart, setStatechart] = useState(json);
-    console.log(setStatechart);
-    useEffect(()=>{
-        dot = generateDotFile(statechart);
-        return () => dot;
-    }, [statechart]);
 };
 
 function endpoint_url(endpoint = "") {
@@ -51,7 +41,7 @@ function endpoint_url(endpoint = "") {
 
 const ActionComponent = () => {
     let [currentState, setState] = useState("Unknown");
-
+    //let chart = generateDotFile({});
     useEffect(() => {
         const sse = new EventSource(endpoint_url("state"));
 
@@ -62,21 +52,11 @@ const ActionComponent = () => {
             }
         });
     });
-    
-    let [statechart, setStatechart] = useState(generateDotFile([{}]));
-    useEffect(()=>{
-        let json = getStatechart().then((data) => {
-            return data[0].value;
-        });
         
-        dot = generateDotFile(json);
-        setStatechart(dot)
-    });
     const postAction = async (action, handler = () => { }) => {
         try {
             const response = await axios.get(endpoint_url(action));
             toast.success(`Action dispatched: ${action}\n${response.data}`);
-            console.log(response.data[0].value.response_code);
 
             if (handler) {
                 handler(response.data[0]);
@@ -88,7 +68,8 @@ const ActionComponent = () => {
         }
     };
 
-    let currentTime = Math.floor(Date.now() / 1000);;
+    let currentTime = Math.floor(Date.now() / 1000);
+    
     return (
         <div>
             <h3>Status</h3>
@@ -98,15 +79,21 @@ const ActionComponent = () => {
             <button onClick={ () => postAction(`trigger?timestamp=${currentTime}&event=start`) }>Start</button>
             <button onClick={ () => postAction(`trigger?timestamp=${currentTime}&event=abort`) }>Stop</button>
             <button onClick={ () => postAction('state', setState) }>State</button>
-            <button onClick={ () => postAction('statechart', setStatechart) }>Statechart</button>
-            <Graphviz dot={statechart} options={{ fit: true }} />
+            <button onClick={ () => fetchStatechart()}>Statechart</button>
+            
         </div>
     );
 };
 
+const fetchStatechart = async () => {
+    const [json, dot] = await getStatechart(); 
+    chart = dot;
+    console.log(chart)
+//    <Graphviz dot={chart} options={{ fit: true }} />
+};
 
 function App(){
-    
+
     return (
         <div className="App">
             <header className="App-header">
@@ -124,7 +111,7 @@ function App(){
                 pauseOnHover={ false }
             />
             <ActionComponent />
-           
+            
         </div>
     );
 }
