@@ -84,10 +84,10 @@ function generateDotFile(json, currentState = "") {
         return dot;
     }
 
-    if (Object.keys(json).length === 0){
-        dot += '}';
-        return dot;
-    }
+    //if (Object.keys(json).length === 0){
+    //    dot += '}';
+    //    return dot;
+    //}
 
     dot += `Entry [shape="point" label=""]`;
     dot += `Entry -> ${json.initial}\n`;

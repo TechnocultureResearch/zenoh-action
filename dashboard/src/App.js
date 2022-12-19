@@ -14,16 +14,23 @@ const url = action.base_url;
 const key_expression = action.key_expression;
 
 let chart = generateDotFile({});
+console.log(chart)
 const getStatechart = async () => {
     try {
         const response = await axios.get(endpoint_url("statechart"));
-        const dot = generateDotFile(response.data[0].value);
-        return [response.data[0].value, dot];
+        const dot = generateDotFile(response.data[0].value.message);
+        return [response.data[0].value.message, dot];
 
     } catch (error) {
         toast.error(error.message);
         throw error;
     }
+};
+
+const fetchStatechart = async () => {
+    const [json, dot] = await getStatechart(); 
+    chart = dot;
+    console.log(chart)
 };
 
 function endpoint_url(endpoint = "") {
@@ -80,16 +87,10 @@ const ActionComponent = () => {
             <button onClick={ () => postAction(`trigger?timestamp=${currentTime}&event=abort`) }>Stop</button>
             <button onClick={ () => postAction('state', setState) }>State</button>
             <button onClick={ () => fetchStatechart()}>Statechart</button>
+            <Graphviz dot={ chart } options={{ fit: true }} />
             
         </div>
     );
-};
-
-const fetchStatechart = async () => {
-    const [json, dot] = await getStatechart(); 
-    chart = dot;
-    console.log(chart)
-//    <Graphviz dot={chart} options={{ fit: true }} />
 };
 
 function App(){

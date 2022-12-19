@@ -20,7 +20,6 @@ conf, args = ZenohConfig().zenohconfig()
 zenoh.init_logger()
 session = zenoh.open(conf)
 pub = session.declare_publisher(args.base_key_expr+"/state")
-#logging.debug(pub)
 QUEUED = False
 
 class Unhealthy(HierarchicalMachine):
@@ -229,4 +228,4 @@ class StateMachineModel:
             event_trigger = getattr(self.statemachine, event)
             event_trigger()
         except MachineError as error:
-            raise ValueError("{}".format(error))
+            raise MachineError(error)

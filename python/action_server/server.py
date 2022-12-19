@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from contextlib import contextmanager
 import logging
 import json
+from transitions import MachineError
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -80,7 +81,7 @@ class Session:
             payload = {'response_code': 'accepted',
                        'message': 'Trigger is accepted and triggered'}
             query.reply(Sample(self.args.base_key_expr+"/trigger", payload))
-        except (ValidationError, ValueError) as error:
+        except (ValidationError, ValueError, MachineError) as error:
             payload = {"response_code": "rejected",
                        "message": "{}".format(error)}
             query.reply(Sample(self.args.base_key_expr+"/trigger", payload))
@@ -101,7 +102,7 @@ class Session:
             payload = {'response_code': 'accepted',
                        'message': markup_statechart}
             query.reply(Sample(self.args.base_key_expr +
-                        "/statechart", markup_statechart))
+                        "/statechart", payload))
         except ValueError as error:
             payload = {'response_code': 'rejected',
                        'message': "{}".format(error)}
@@ -111,7 +112,6 @@ if __name__ == "__main__":
     """
     Creates session object and runs the session.
     """
-
     zenoh.init_logger()
     with session_manager() as session:
         logging.debug("server started")
