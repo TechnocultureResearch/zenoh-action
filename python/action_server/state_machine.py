@@ -68,11 +68,6 @@ class Unhealthy(HierarchicalMachine):
              },
              {
                 "source": "awaitingclearanceerr",
-                "dest": "clearancetimeout",
-                "trigger": "iawaitingclearanceerr"
-             },
-             {
-                "source": "awaitingclearanceerr",
                 "dest": "cleared",
                 "trigger": "icleared"
              },
@@ -122,7 +117,7 @@ class Healthy(HierarchicalMachine):
                 "name": "awaitingclearance"
              },
              {
-                "name": "clearncetimeout"
+                "name": "clearancetimeout"
              },
              {
                 "name": "abort"
@@ -131,30 +126,35 @@ class Healthy(HierarchicalMachine):
 
         transitions = [
              {
-                "source": "busy",
-                "dest": "done",
-                "trigger": "done"
-             },
-             {
-                "source": "done",
-                "dest": "abort",
-                "trigger": "iabort"
-             },
-             {
-                "source": "busy",
-                "dest": "abort",
-                "trigger": "abort"
-             },
-             {
-                "source": "abort",
-                "dest": "awaitingclearance",
-                "trigger": "iawaitingclearance"
-             },
-             {
-                "source": "awaitingclearance",
-                "dest": "idle",
-                "trigger": "idle"
-             }
+               "source": "busy",
+               "dest": "done",
+               "trigger": "done"
+            },
+            {
+               "source": "done",
+               "dest": "abort",
+               "trigger": "iabort"
+            },
+            {
+               "source": "busy",
+               "dest": "abort",
+               "trigger": "abort"
+            },
+            {
+               "source": "abort",
+               "dest": "awaitingclearance",
+               "trigger": "iawaitingclearance"
+            },
+            {
+               "source": "awaitingclearance",
+               "dest": "clearancetimeout",
+               "trigger": "iclearancetimeout"
+            },
+            {
+               "source": "awaitingclearance",
+               "dest": "idle",
+               "trigger": "idle"
+            }
           ]
         super().__init__(model=self, states=states, transitions=transitions, initial="busy", queued=QUEUED, after_state_change='publish_state', send_event=True)
     
@@ -182,7 +182,7 @@ class BaseStateMachine(HierarchicalMachine,MarkupMachine):
         healthy = Healthy()
         states = [{'name':"idle"}, {"name":'healthy', 'children':healthy}, {"name":"unhealthy", "children":unhealthy}]
         super().__init__(model=self, states=states, initial="idle", queued=QUEUED, after_state_change='publish_state', send_event=True)
-        self.add_transition("start", "idle", "healthy")
+        self.add_transition("start", "idle", "busy")
         self.add_transition("idead", "brokenwithholdings", "dead")
         self.add_transition("idead", "brokenwithoutholdings", "dead")
 

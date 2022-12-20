@@ -13,13 +13,11 @@ const endpointsList = new Set(["trigger", "statechart", "state"]);
 const url = action.base_url;
 const key_expression = action.key_expression;
 
-let chart = generateDotFile({});
-console.log(chart)
 const getStatechart = async () => {
     try {
         const response = await axios.get(endpoint_url("statechart"));
-        const dot = generateDotFile(response.data[0].value.message);
-        return [response.data[0].value.message, dot];
+        console.log(response.data[0].value.message)
+        return response.data[0].value.message;
 
     } catch (error) {
         toast.error(error.message);
@@ -27,11 +25,6 @@ const getStatechart = async () => {
     }
 };
 
-const fetchStatechart = async () => {
-    const [json, dot] = await getStatechart(); 
-    chart = dot;
-    console.log(chart)
-};
 
 function endpoint_url(endpoint = "") {
     let _endpoint = endpoint.split("?")[0] || endpoint;
@@ -46,9 +39,9 @@ function endpoint_url(endpoint = "") {
 }
 
 
-const ActionComponent = () => {
+const ActionComponent = (setstateChart) => {
     let [currentState, setState] = useState("Unknown");
-    //let chart = generateDotFile({});
+    
     useEffect(() => {
         const sse = new EventSource(endpoint_url("state"));
 
@@ -59,7 +52,7 @@ const ActionComponent = () => {
             }
         });
     });
-        
+    console.log(typeof setstateChart)
     const postAction = async (action, handler = () => { }) => {
         try {
             const response = await axios.get(endpoint_url(action));
@@ -86,15 +79,27 @@ const ActionComponent = () => {
             <button onClick={ () => postAction(`trigger?timestamp=${currentTime}&event=start`) }>Start</button>
             <button onClick={ () => postAction(`trigger?timestamp=${currentTime}&event=abort`) }>Stop</button>
             <button onClick={ () => postAction('state', setState) }>State</button>
-            <button onClick={ () => fetchStatechart()}>Statechart</button>
-            <Graphviz dot={ chart } options={{ fit: true }} />
-            
+            <button onClick={ () => this.setstateChart.bind(this)}>Statechart</button>
         </div>
     );
 };
 
 function App(){
-
+    let [statechart, setstateChart] = useState(generateDotFile());
+    useEffect(()=>{
+        let dot = "";
+        const fetchstateChart = async () => {
+            let json = await getStatechart();
+            dot = generateDotFile(json);
+            setstateChart(dot);
+        };
+        fetchstateChart();
+        return () => {
+            return dot;
+        }
+    }, [statechart]);
+    console.log(statechart)
+    
     return (
         <div className="App">
             <header className="App-header">
@@ -111,8 +116,8 @@ function App(){
                 newestOnTop={ true }
                 pauseOnHover={ false }
             />
-            <ActionComponent />
-            
+            <ActionComponent setstateChart = {setstateChart}/>
+            <Graphviz dot={statechart} options={{ height:500 , width: 1500}} />
         </div>
     );
 }

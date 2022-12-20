@@ -69,6 +69,7 @@ function transitionToStr(transition, state_list) {
     if (state_list[transition.source]) {
         cluster_label += `, lhead=${transition.source}`;
     }
+
     return `"${transition.source}" -> "${transition.dest}" [label="${transition.trigger} ${cluster_label}"]\n`;
 }
 
@@ -84,20 +85,23 @@ function generateDotFile(json, currentState = "") {
         return dot;
     }
 
-    //if (Object.keys(json).length === 0){
-    //    dot += '}';
-    //    return dot;
-    //}
+    if (Object.keys(json).length === 0){
+        dot += '}';
+        return dot;
+    }
 
     dot += `Entry [shape="point" label=""]`;
     dot += `Entry -> ${json.initial}\n`;
     dot += `${json.initial} [shape=ellipse, color=red, fillcolor= orangered3, fontcolor=black, style=filled]; \n`;
-    //dot += `${_currentState} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
+    if (_currentState !== ""){
+        dot += `${_currentState} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
+    }
     
     let state_dict = states(json);
     let transition_list = transitions(json);
     
     const clusters = [];
+
     Object.entries(state_dict)
         .filter(([k, v]) => v === true)
         .forEach(arr => clusters.push(arr[0]));
@@ -105,7 +109,6 @@ function generateDotFile(json, currentState = "") {
 
     clusters.forEach(cluster => {
         dot += `subgraph cluster_${cluster} {\n`;
-        dot += `${_currentState} [shape=ellipse, color=lightsalmon, fillcolor=lightsalmon, fontcolor=black, style=filled]; \n`;
         dot += childtransitionToStr(json, cluster);
         dot += ` label=${cluster}\n`;
 
