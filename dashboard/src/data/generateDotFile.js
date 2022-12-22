@@ -48,7 +48,7 @@ function transitionToStr(transition, json, clusters) {
   let _clusterLabel = "";
   let stateInitial = "";
   let _stateInitial = "";
-  let label="";
+  let label = "";
   if (clusters !== undefined) {
     if (
       clusters.includes(transition.source) &&
@@ -78,12 +78,11 @@ function transitionToStr(transition, json, clusters) {
         if (state.name === transition.source) {
           _stateInitial = state.initial;
           stateInitial += state.name;
-          if (transition.dest === "final"){
-            label="";
+          if (transition.dest === "final") {
+            label = "";
+          } else {
+            label = transition.trigger;
           }
-          else{
-            label=transition.trigger;
-          }  
         }
       });
       return `${_stateInitial} -> ${transition.dest} [label="${label}", lhead="${transition.dest}", ltail="cluster_${stateInitial}", minlen=4]\n`;
@@ -117,7 +116,7 @@ function generateDotFile(json, currentState = "") {
     dot += "}";
     return dot;
   }
-  dot+=`compound=True;\n`;
+  dot += `compound=True;\n`;
   dot += `Entry [shape="point" label=""]\n`;
   dot += `Entry -> ${json.initial}\n`;
   dot += `final[shape="doublecircle", label=""]\n`;
