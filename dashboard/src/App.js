@@ -16,7 +16,6 @@ const key_expression = action.key_expression;
 const getStatechart = async () => {
     try {
         const response = await axios.get(endpoint_url("statechart"));
-        console.log(response.data[0].value.message)
         return response.data[0].value.message;
 
     } catch (error) {
@@ -52,7 +51,6 @@ const ActionComponent = (setstateChart) => {
             }
         });
     });
-    console.log(typeof setstateChart)
     const postAction = async (action, handler = () => { }) => {
         try {
             const response = await axios.get(endpoint_url(action));
@@ -98,7 +96,6 @@ function App(){
             return dot;
         }
     }, [statechart]);
-    console.log(statechart)
     
     return (
         <div className="App">
@@ -117,7 +114,7 @@ function App(){
                 pauseOnHover={ false }
             />
             <ActionComponent setstateChart = {setstateChart}/>
-            <Graphviz dot={statechart} options={{ height:500 , width: 1500}} />
+            <Graphviz dot={statechart} options={{ height:700 , width: 800}} />
         </div>
     );
 }

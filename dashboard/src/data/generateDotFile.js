@@ -121,9 +121,6 @@ function generateDotFile(json, currentState = "") {
   let state_dict = states(json);
   let transition_list = transitions(json);
 
-  console.log(state_dict);
-  console.log(transition_list);
-
   const clusters = [];
   Object.entries(state_dict)
     .filter(([k, v]) => v === true)
