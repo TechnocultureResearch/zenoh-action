@@ -47,6 +47,12 @@ class Unhealthy(HierarchicalMachine):
              },
              {
                 "name": "brokenwithoutholdings"
+             },
+             {
+                "name": "cleared"
+             },
+             {
+                "name": "final"
              }
           ]
         transitions = [
@@ -64,6 +70,16 @@ class Unhealthy(HierarchicalMachine):
                 "source": "awaitingclearanceerr",
                 "dest": "brokenwithholdings",
                 "trigger": "itimeoutclearance"
+             },
+             {
+                "source": "brokenwithoutholdings",
+                "dest": "final",
+                "trigger": "error"
+             },
+             {
+                "source": "brokenwithholdings",
+                "dest": "final",
+                "trigger": "error"
              }
           ]
         super().__init__(self, states=states, transitions=transitions, initial="awaitingclearanceerr", queued=QUEUED, after_state_change='publish_state', send_event=True)
@@ -89,7 +105,6 @@ class Healthy(HierarchicalMachine):
             after_state_change: callback to call after every state change.
             send_event: send current executing event to model.
         '''
-        unhealthy = Unhealthy()
         states = [
              {
                 "name": "busy"
@@ -107,14 +122,17 @@ class Healthy(HierarchicalMachine):
                 "name": "stopped"
              },
              {
-                 "name":"unhealthy", "children":unhealthy 
+                "name": "failed"
+             },
+             {
+                "name": "final"
              }
           ]
 
         transitions = [
              {
                "source": "busy",
-               "dest": "stoped",
+               "dest": "stopped",
                "trigger": "taskstop"
             },
             {
@@ -124,8 +142,8 @@ class Healthy(HierarchicalMachine):
             },
             {
                "source": "failed",
-               "dest": "unhealthy",
-               "trigger": "iunhealthy"
+               "dest": "awaitingclearance",
+               "trigger": "iawaitclearance"
             },
             {
                "source": "stopped",
@@ -148,14 +166,9 @@ class Healthy(HierarchicalMachine):
                "trigger": "itimeoutclearance"
             },
             {
-               "source": "awaitingclearance",
-               "dest": "idle",
-               "trigger": "icleardone"
-            },
-            {
                "source": "clearancetimeout",
-               "dest": "unhealthy",
-               "trigger": "iunhealthy"
+               "dest": "final",
+               "trigger": "error"
             }
           ]
         super().__init__(model=self, states=states, transitions=transitions, initial="busy", queued=QUEUED, after_state_change='publish_state', send_event=True)
@@ -182,10 +195,11 @@ class BaseStateMachine(HierarchicalMachine,MarkupMachine):
         '''
         unhealthy= Unhealthy()
         healthy = Healthy()
-        states = [{'name':"idle"}, {"name":'healthy', 'children':healthy}, {"name":"unhealthy", "children":unhealthy}]
+        states = [{'name':"idle"}, {"name":'healthy', 'children':healthy}, {"name":"unhealthy", "children":unhealthy}, {"name":"final"}]
         super().__init__(model=self, states=states, initial="idle", queued=QUEUED, after_state_change='publish_state', send_event=True)
         self.add_transition("start", "idle", "healthy")
-        self.add_transition("idead", "unhealthy", "dead")
+        self.add_transition("err", "healthy", "unhealthy")
+        self.add_transition("idead", "unhealthy", "final")
 
     def publish_state(self, event_data):
         '''
