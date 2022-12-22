@@ -35,7 +35,7 @@ function childtransitionToStr(json, cluster) {
           transition_ = `${transition.source} -> final_${cluster};`;
           child_transition += transition_;
         } else {
-          child_transition += transitionToStr(transition, cluster);
+          child_transition += transitionToStr(transition);
         }
       });
     }
@@ -48,6 +48,7 @@ function transitionToStr(transition, json, clusters) {
   let _clusterLabel = "";
   let stateInitial = "";
   let _stateInitial = "";
+  let label="";
   if (clusters !== undefined) {
     if (
       clusters.includes(transition.source) &&
@@ -71,15 +72,21 @@ function transitionToStr(transition, json, clusters) {
           _clusterLabel += state.name;
         }
       });
-      return `${stateInitial} -> ${_stateInitial} [label="${transition.trigger}", lhead="cluster_${clusterLabel}", ltail="cluster_${_clusterLabel}", minlen=5]\n`;
+      return `${stateInitial} -> ${_stateInitial} [label="${transition.trigger}", lhead="cluster_${_clusterLabel}", ltail="cluster_${clusterLabel}", minlen=5]\n`;
     } else if (clusters.includes(transition.source)) {
       json.states.forEach((state) => {
         if (state.name === transition.source) {
           _stateInitial = state.initial;
           stateInitial += state.name;
+          if (transition.dest === "final"){
+            label="";
+          }
+          else{
+            label=transition.trigger;
+          }  
         }
       });
-      return `${_stateInitial} -> ${transition.dest} [label="${transition.trigger}", lhead="${transition.dest}", ltail="cluster_${stateInitial}", minlen=4]\n`;
+      return `${_stateInitial} -> ${transition.dest} [label="${label}", lhead="${transition.dest}", ltail="cluster_${stateInitial}", minlen=4]\n`;
     } else if (clusters.includes(transition.dest)) {
       json.states.forEach((state) => {
         if (state.name === transition.dest) {
@@ -87,7 +94,7 @@ function transitionToStr(transition, json, clusters) {
           stateInitial += state.name;
         }
       });
-      return `${transition.source} -> ${_stateInitial} [label="${transition.trigger}", lhead="cluster_${transition.dest}", ltail="${stateInitial}", minlen=4]\n`;
+      return `${transition.source} -> ${_stateInitial} [label="${transition.trigger}", lhead=cluster_${transition.dest}, ltail="${stateInitial}", minlen=4]\n`;
     }
   } else {
     return `"${transition.source}" -> "${transition.dest}" [label="${transition.trigger}"]\n`;
@@ -110,7 +117,7 @@ function generateDotFile(json, currentState = "") {
     dot += "}";
     return dot;
   }
-
+  dot+=`compound=True;\n`;
   dot += `Entry [shape="point" label=""]\n`;
   dot += `Entry -> ${json.initial}\n`;
   dot += `final[shape="doublecircle", label=""]\n`;
@@ -146,6 +153,7 @@ function generateDotFile(json, currentState = "") {
   });
 
   dot += "}\n";
+  console.log(dot);
   return dot;
 }
 export default generateDotFile;
