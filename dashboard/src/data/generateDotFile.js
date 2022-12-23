@@ -1,3 +1,38 @@
+function connectedStatesList(json, _states) {
+  let connectedStates = {};
+  let _connected = [];
+  Object.entries(_states)
+    .filter(([k, v]) => v === false)
+    .map((arr) => {
+      json.states.map((state) => {
+        if (state.transitions) {
+          state.transitions.map((transition) => {
+            if (transition.source == arr[0]) {
+              _connected.push(transition.dest);
+            }
+          });
+        }
+      });
+      connectedStates[arr[0]] = _connected;
+      _connected = [];
+    });
+  let keys = Object.keys(connectedStates);
+  json.states.map((state) => {
+    json.transitions.map((transition) => {
+      if (transition.source == state.name) {
+        if (keys.includes(state.name))
+          connectedStates[state.name].push(transition.dest);
+        else {
+          _connected.push(transition.dest);
+        }
+      }
+    });
+    connectedStates[state.name] = _connected;
+    _connected = [];
+  });
+  console.log(connectedStates);
+}
+
 function states(json) {
   let _states = {};
 
@@ -153,6 +188,8 @@ function generateDotFile(json, currentState = "") {
 
   dot += "}\n";
   console.log(dot);
+  connectedStatesList(json, state_dict);
   return dot;
 }
+
 export default generateDotFile;
