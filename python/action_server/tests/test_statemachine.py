@@ -1,4 +1,4 @@
-from state_machine import BaseStateMachine
+from python.action_server.stateMachine import BaseStateMachine
 import pytest
 statemachine = BaseStateMachine()
 

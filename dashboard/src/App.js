@@ -51,6 +51,7 @@ const ActionComponent = (setstateChart) => {
   const postAction = async (action, handler = () => {}) => {
     try {
       const response = await axios.get(endpoint_url(action));
+      console.log(response.data[0])
       toast.success(`Action dispatched: ${action}\n${response.data}`);
 
       if (handler) {
@@ -70,20 +71,7 @@ const ActionComponent = (setstateChart) => {
       <p>{currentState}</p>
 
       <h3>Action Buttons</h3>
-      <button
-        onClick={() =>
-          postAction(`trigger?timestamp=${currentTime}&event=start`)
-        }
-      >
-        Start
-      </button>
-      <button
-        onClick={() =>
-          postAction(`trigger?timestamp=${currentTime}&event=abort`)
-        }
-      >
-        Stop
-      </button>
+      <button onClick={() =>postAction(`trigger?timestamp=${currentTime}&event=start`)}>Start</button>
       <button onClick={() => postAction("state", setState)}>State</button>
       <button onClick={() => this.setstateChart.bind(this)}>Statechart</button>
     </div>
