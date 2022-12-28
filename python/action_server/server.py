@@ -2,22 +2,23 @@ import zenoh
 import time
 from zenoh import Query, Sample
 from stateMachine import BaseStateMachine
-from config import ZenohConfig
-from eventTypes import EventModel, Trigger, MarkupStatechart
+from config import ZenohConfig, ZenohSettings
+from eventTypes import Event, Trigger
 from pydantic import ValidationError
 from contextlib import contextmanager
 import logging
 from transitions import MachineError
+from typing import Any
 
 logging.getLogger().setLevel(logging.DEBUG)
 
 @contextmanager
-def session_manager(statemachine: object):
+def session_manager(settings: ZenohSettings, statemachine: Any):
     '''
     This function creates a session object and closes it when the context is exited.
     '''
     try:
-        session = Session(statemachine=statemachine)
+        session: Session = Session(settings = settings, statemachine=statemachine)
         yield session
     except KeyboardInterrupt:
         logging.error("Interrupted by user")
@@ -29,36 +30,29 @@ class Session:
     '''
     This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
     '''
-    def __init__(self,
-                statemachine: object,
-                mode: str = "peer",
-                connect: str = "",
-                listen: str = "",
-                config: str = "",
-                base_key_expr: str = "Genotyper/1/DNASensor/1",
-                complete: bool = False) -> None:
+    def __init__(self,settings: ZenohSettings, statemachine: Any) -> None:
         '''
         Initializes the variables.
         args: object of the ZenohConfig class which validates zenoh configuration variables.
         statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
         '''
-        zenohConfig = ZenohConfig(mode=mode, connect=connect, listen=listen, config=config, base_key_expr=base_key_expr, complete=complete)
-        self.conf, self.args = zenohConfig.zenohconfig()
-        self.statemachine = statemachine
+        zenohConfig: ZenohConfig = ZenohConfig(settings)
+        self.conf: zenoh.Configuration = zenohConfig.zenohconfig()
+        self.statemachine: Any = statemachine
         self.open()
 
-    def open(self):
+    def open(self) -> None:
         '''
         Creates a zenoh session and registers queryables.
         session: creates zenoh session.
         trigger_queryable: object of queryable for trigger endpoint.
         statechart_queryable: object of queryable for statechart endpoint.
         '''
-        self.session = zenoh.open(self.conf)
-        self.trigger_queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler, self.args.complete)
-        self.statechart_queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler, self.args.complete)
+        self.session: zenoh.Session = zenoh.open(self.conf)
+        self.trigger_queryable: zenoh.Queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler, self.args.complete)
+        self.statechart_queryable: zenoh.Queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler, self.args.complete)
 
-    def close(self):
+    def close(self) -> None:
         '''
         Closes the zenoh session.
         '''
@@ -78,7 +72,7 @@ class Session:
         '''
         try:
             logging.debug(">> [Queryable ] Received Query '{}'".format(query.selector))
-            validator = EventModel(**query.selector.decode_parameters())
+            validator = Event(**query.selector.decode_parameters())
             trigger = Trigger(validator.event, self.statemachine)
             trigger()
             payload = {'response_code': 'accepted',
@@ -89,7 +83,7 @@ class Session:
                        "message": "{}".format(error)}
             query.reply(Sample(self.args.base_key_expr+"/trigger", payload))
 
-    def statechart_query_handler(self, query: Query):
+    def statechart_query_handler(self, query: Query) -> None:
         '''
         Query handle to reply the queries on the key_expr `**/statechart`.
         Args:

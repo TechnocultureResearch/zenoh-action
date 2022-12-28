@@ -1,11 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic.dataclasses import dataclass
 import zenoh
 import json
 from typing import Tuple
 
-zenoh.init_logger()
-
-class ZenohValidator(BaseModel):
+@dataclass
+class ZenohSettings(BaseModel):
     '''
     Config module for zenoh configuration. Validates the configuration variables using ConfZ by pydantic module.
     Args:
@@ -17,50 +17,30 @@ class ZenohValidator(BaseModel):
         config(str): a configuration file for zenoh variables.
         base_key_expr(str): a common keyexpression to use. 
     '''
-    mode: str
-    connect: str
-    listen: str
-    base_key_expr: str
-    complete: bool
+    mode: str = Field(default="peer")
+    connect: str = Field(default="")
+    listen: str = Field(default="")
+    base_key_expr: str = Field(default="Genotyper/1/DNASensor/1")
+    config: str = Field(default="")
 
 class ZenohConfig:
     '''
     Class creates zenoh configuration object and validates tha configuration variables.
     '''
-    def __init__(self,
-                mode: str = "peer",
-                connect: str = "",
-                listen: str = "",
-                config: str = "",
-                base_key_expr: str = "Genotyper/1/DNASensor/1",
-                complete: bool = False) -> None:
+    def __init__(self, settings: ZenohSettings) -> None:
         '''
         init takes a dict of arguments verifies them and creates a zenoh configuration object.
         Args:
-            mode(str): two choices were there:
-                - peer
-                - client
-            connect(str): the endpoint to connect
-            listen(str): the endpoint to listen 
-            config(str): a configuration file for zenoh variables.
-            base_key_expr(str): a common keyexpression to use. 
+            settings(dict): a dict of zenoh parameters.
         '''
-        self.args = ZenohValidator(mode=mode, connect=connect, listen=listen, base_key_expr=base_key_expr, complete=complete)
-        self.conf = zenoh.Config.from_file(
-        config) if config != "" else zenoh.Config()
-        if self.args.mode != "":
-            self.conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(self.args.mode))
-        if self.args.connect != "":
-            self.conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(self.args.connect))
-        if self.args.listen != "":
-            self.conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(self.args.listen))
-    
-    def zenohconfig(self) -> Tuple:
+        self.zenohSettings: ZenohSettings = settings
+        self.conf: zenoh.Configuration = None
+    def zenohconfig(self) -> zenoh.Configuration:
         '''
         Returns the zenoh configuration object and validated arguments.
-        Args:
-            None
         Returns:
-            A tuple of zenoh configuration object and validated arguments.
+            A tuple of zenoh configuration object and zenoh parameter.
         '''
-        return self.conf, self.args
+        self.conf = zenoh.Config.from_file(
+        self.zenohSettings.config) if self.zenohSettings.config != "" else zenoh.Config()
+        return self.conf

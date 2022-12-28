@@ -1,26 +1,17 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
-from transitions import MachineError
-import json
 from config import ZenohConfig
 import zenoh
 import logging
 
+
 logging.getLogger().setLevel(logging.DEBUG)
 
-"""
-Global variables:
-    QUEUED(bool): To process the tranisitions in a queue.
-    args: object of the ZenohConfig class which validates zenoh configuration variables.
-    conf: Zenoh configuration object from zenohd.
-    session: object to create a session.
-    pub: object for publisher to publish executed state on zenohd.
-"""
-conf, args = ZenohConfig().zenohconfig()
-zenoh.init_logger()
-session = zenoh.open(conf)
-pub = session.declare_publisher(args.base_key_expr + "/state")
-QUEUED = False
+def session() -> zenoh.Publisher:
+    conf = ZenohConfig().zenohconfig()
+    session: zenoh.Session = zenoh.open(conf)
+    pub = session.declare_publisher(zenohSettings.base_key_expr+"/state")
+    return pub
 
 
 class Unhealthy(HierarchicalMachine):
@@ -29,7 +20,7 @@ class Unhealthy(HierarchicalMachine):
     Inherited with HierarchicalMachine.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes tha hierarchical state machine.
         Args:
@@ -72,12 +63,13 @@ class Unhealthy(HierarchicalMachine):
             states=states,
             transitions=transitions,
             initial="awaitingclearanceerr",
-            queued=QUEUED,
+            queued=False,
             after_state_change="publish_state",
             send_event=True,
         )
 
-    def publish_state(self, event_data):
+    def publish_state(self, event_data) -> None:
+        pub = session()
         pub.put(event_data.model.state)
 
 
@@ -88,7 +80,7 @@ class Healthy(HierarchicalMachine):
     Inherited with HierarchicalMachine
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes tha hierarchical state machine.
         Args:
@@ -140,22 +132,23 @@ class Healthy(HierarchicalMachine):
             states=states,
             transitions=transitions,
             initial="busy",
-            queued=QUEUED,
+            queued=False,
             after_state_change="publish_state",
             send_event=True,
         )
 
-    def publish_state(self, event_data):
+    def publish_state(self, event_data) -> None:
         """
         Method to publish event state on zenohd after every state change.
         Args:
             event_data: complete information of current executing event i.e. transition and state.
         """
+        pub = session()
         pub.put(event_data.model.state)
 
 
 class BaseStateMachine(HierarchicalMachine, MarkupMachine):
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes tha hierarchical state machine. Basestatemachine calls healthy and unhealthy state machine to transit from healthy machine to unhealthy machine.
         Args:
@@ -178,7 +171,7 @@ class BaseStateMachine(HierarchicalMachine, MarkupMachine):
             model=self,
             states=states,
             initial="idle",
-            queued=QUEUED,
+            queued=False,
             after_state_change="publish_state",
             send_event=True,
         )
@@ -186,10 +179,11 @@ class BaseStateMachine(HierarchicalMachine, MarkupMachine):
         self.add_transition("err", "healthy", "unhealthy")
         self.add_transition("idead", "unhealthy", "final")
 
-    def publish_state(self, event_data):
+    def publish_state(self, event_data) -> None:
         """
         Method to publish event state on zenohd after every state change.
         Args:
             event_data: complete information of current executing event i.e. transition and state.
         """
+        pub = session()
         pub.put(event_data.model.state)

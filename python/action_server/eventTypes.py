@@ -1,22 +1,24 @@
 from pydantic import BaseModel, validator
 from datetime import datetime
+from transitions import MachineError, Machine
+from dataclasses import dataclass
 from typing import Any
-from transitions import MachineError
 
+@dataclass
 class Trigger:
-    def __init__(self, other: str, statemachine: object) -> None:
-        self.other = other
+    def __init__(self, event: str, statemachine: Any) -> None:
+        self.event = event
         self.statemachine = statemachine
     
-    def __call__(self):
+    def __call__(self) -> Any:
         try:
-            return self.statemachine.trigger(self.other)
+            return self.statemachine.trigger(self.event)
         except MachineError as error:
             raise MachineError("Event is recognised but {}".format(error))
         except AttributeError as error:
             raise AttributeError("Event is not recognised or valid. {}".format(error))
-
-class EventModel(BaseModel):
+@dataclass
+class Event(BaseModel):
     '''
     Validates the parameters given to trigger an event.
     Args:
@@ -27,7 +29,7 @@ class EventModel(BaseModel):
     event: str
     
     @validator('timestamp')
-    def must_be_a_timestamp(cls, v):
+    def must_be_a_timestamp(cls, v: str) -> Any:
         '''
         Custom validator for timestamp to check if it is valid.
         Args:
@@ -44,7 +46,7 @@ class EventModel(BaseModel):
         return v
     
     @validator('event')
-    def must_be_a_valid_event(cls, v):
+    def must_be_a_valid_event(cls, v: str) -> Any:
         '''
         Custom validator to check if event is valid and checks if user can trigger that event.
         Args:
