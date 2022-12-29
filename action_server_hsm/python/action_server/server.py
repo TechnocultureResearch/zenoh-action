@@ -26,39 +26,9 @@ def session_manager(settings: ZenohSettings, statemachine: Any):
         session.close()
         logging.debug("server closed")
 
-class Session:
-    '''
-    This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
-    '''
-    def __init__(self,settings: ZenohSettings, statemachine: Any) -> None:
-        '''
-        Initializes the variables.
-        args: object of the ZenohConfig class which validates zenoh configuration variables.
-        statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
-        '''
-        zenohConfig: ZenohConfig = ZenohConfig(settings)
-        self.conf: zenoh.Configuration = zenohConfig.zenohconfig()
-        self.statemachine: Any = statemachine
-        self.open()
-
-    def open(self) -> None:
-        '''
-        Creates a zenoh session and registers queryables.
-        session: creates zenoh session.
-        trigger_queryable: object of queryable for trigger endpoint.
-        statechart_queryable: object of queryable for statechart endpoint.
-        '''
-        self.session: zenoh.Session = zenoh.open(self.conf)
-        self.trigger_queryable: zenoh.Queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.trigger_query_handler, self.args.complete)
-        self.statechart_queryable: zenoh.Queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.statechart_query_handler, self.args.complete)
-
-    def close(self) -> None:
-        '''
-        Closes the zenoh session.
-        '''
-        self.trigger_queryable.undeclare()
-        self.statechart_queryable.undeclare()
-        self.session.close()
+class CallbackMethod:
+    def __init__(self) -> None:
+        pass
 
     def trigger_query_handler(self, query: Query) -> None:
         '''
@@ -105,12 +75,49 @@ class Session:
                        'message': "{}".format(error)}
             query.reply(Sample(self.args.base_key_expr+"/statechart", payload))
 
+
+
+class Session:
+    '''
+    This class performs tasks on zenohd on two endpoints i.e. `/trigger` and `/statechart`.
+    '''
+    def __init__(self,settings: ZenohSettings, statemachine: Any, callback: CallbackMethod) -> None:
+        '''
+        Initializes the variables.
+        args: object of the ZenohConfig class which validates zenoh configuration variables.
+        statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
+        '''
+        zenohConfig: ZenohConfig = ZenohConfig(settings)
+        self.conf: zenoh.Configuration = zenohConfig.zenohconfig()
+        self.statemachine: Any = statemachine
+        self.callback: CallbackMethod = callback
+        self.open()
+
+    def open(self) -> None:
+        '''
+        Creates a zenoh session and registers queryables.
+        session: creates zenoh session.
+        trigger_queryable: object of queryable for trigger endpoint.
+        statechart_queryable: object of queryable for statechart endpoint.
+        '''
+        self.session: zenoh.Session = zenoh.open(self.conf)
+        self.trigger_queryable: zenoh.Queryable = self.session.declare_queryable(self.args.base_key_expr+"/trigger", self.callback.trigger_query_handler)
+        self.statechart_queryable: zenoh.Queryable = self.session.declare_queryable(self.args.base_key_expr+"/statechart", self.callback.statechart_query_handler)
+
+    def close(self) -> None:
+        '''
+        Closes the zenoh session.
+        '''
+        self.trigger_queryable.undeclare()
+        self.statechart_queryable.undeclare()
+        self.session.close()
 if __name__ == "__main__":
     """
     Creates session object and runs the session.
     """
     zenoh.init_logger()
     statemachine = BaseStateMachine()
+    callback = CallbackMethod()
     with session_manager(statemachine) as session:
         logging.debug("server started")
         while True:
