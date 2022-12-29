@@ -1,10 +1,7 @@
+#type: ignore
 from pydantic import BaseModel, Field
-from pydantic.dataclasses import dataclass
 import zenoh
-import json
-from typing import Tuple
 
-@dataclass
 class ZenohSettings(BaseModel):
     '''
     Config module for zenoh configuration. Validates the configuration variables using ConfZ by pydantic module.
@@ -34,8 +31,8 @@ class ZenohConfig:
             settings(dict): a dict of zenoh parameters.
         '''
         self.zenohSettings: ZenohSettings = settings
-        self.conf: zenoh.Configuration = None
-    def zenohconfig(self) -> zenoh.Configuration:
+        
+    def zenohconfig(self) -> zenoh.Config:
         '''
         Returns the zenoh configuration object and validated arguments.
         Returns:

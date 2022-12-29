@@ -1,17 +1,23 @@
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
-from config import ZenohConfig
+from config import ZenohConfig, ZenohSettings
 import zenoh
 import logging
 
-
 logging.getLogger().setLevel(logging.DEBUG)
 
-def session() -> zenoh.Publisher:
-    conf = ZenohConfig().zenohconfig()
-    session: zenoh.Session = zenoh.open(conf)
-    pub = session.declare_publisher(zenohSettings.base_key_expr+"/state")
-    return pub
+pub: zenoh.Publisher = None
+
+class Publisher:
+    def __init__(self, settings: ZenohSettings) -> None:
+        self.settings: ZenohSettings = settings
+
+    def createZenohPublisher(self) -> None:    
+        global pub
+        zenohconf = ZenohConfig(settings=self.settings)
+        conf = zenohconf.zenohconfig()
+        session: zenoh.Session = zenoh.open(conf)
+        pub = session.declare_publisher(self.settings.base_key_expr+"/state")
 
 
 class Unhealthy(HierarchicalMachine):
@@ -54,9 +60,16 @@ class Unhealthy(HierarchicalMachine):
                 "dest": "brokenwithholdings",
                 "trigger": "itimeoutclearance",
             },
-            {"source": "brokenwithoutholdings",
-                "dest": "final", "trigger": "error"},
-            {"source": "brokenwithholdings", "dest": "final", "trigger": "error"},
+            {
+                "source": "brokenwithoutholdings",
+                "dest": "final", 
+                "trigger": "error"
+            },
+            {
+                "source": "brokenwithholdings", 
+                "dest": "final", 
+                "trigger": "error"
+            },
         ]
         super().__init__(
             self,
@@ -64,13 +77,8 @@ class Unhealthy(HierarchicalMachine):
             transitions=transitions,
             initial="awaitingclearanceerr",
             queued=False,
-            after_state_change="publish_state",
-            send_event=True,
+            send_event=True
         )
-
-    def publish_state(self, event_data) -> None:
-        pub = session()
-        pub.put(event_data.model.state)
 
 
 class Healthy(HierarchicalMachine):
@@ -125,7 +133,11 @@ class Healthy(HierarchicalMachine):
                 "dest": "clearancetimeout",
                 "trigger": "itimeoutclearance",
             },
-            {"source": "clearancetimeout", "dest": "final", "trigger": "error"},
+            {
+                "source": "clearancetimeout", 
+                "dest": "final", 
+                "trigger": "error"
+            },
         ]
         super().__init__(
             model=self,
@@ -133,19 +145,8 @@ class Healthy(HierarchicalMachine):
             transitions=transitions,
             initial="busy",
             queued=False,
-            after_state_change="publish_state",
-            send_event=True,
+            send_event=True
         )
-
-    def publish_state(self, event_data) -> None:
-        """
-        Method to publish event state on zenohd after every state change.
-        Args:
-            event_data: complete information of current executing event i.e. transition and state.
-        """
-        pub = session()
-        pub.put(event_data.model.state)
-
 
 class BaseStateMachine(HierarchicalMachine, MarkupMachine):
     def __init__(self) -> None:
@@ -176,7 +177,7 @@ class BaseStateMachine(HierarchicalMachine, MarkupMachine):
             send_event=True,
         )
         self.add_transition("start", "idle", "healthy")
-        self.add_transition("err", "healthy", "unhealthy")
+        self.add_transition("error", "healthy", "unhealthy")
         self.add_transition("idead", "unhealthy", "final")
 
     def publish_state(self, event_data) -> None:
@@ -185,5 +186,9 @@ class BaseStateMachine(HierarchicalMachine, MarkupMachine):
         Args:
             event_data: complete information of current executing event i.e. transition and state.
         """
-        pub = session()
-        pub.put(event_data.model.state)
+        global pub
+        if pub == None:
+            logging.warning("Publisher not initialized")
+            logging.info("Current State: {}".format(event_data.model.state))
+        else:
+            pub.put(event_data.model.state)
