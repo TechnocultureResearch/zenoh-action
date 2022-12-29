@@ -1,3 +1,4 @@
+#type: ignore
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
 from config import ZenohConfig, ZenohSettings
