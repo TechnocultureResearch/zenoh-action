@@ -193,3 +193,4 @@ function generateDotFile(json, currentState = "") {
 }
 
 export default generateDotFile;
+export { connectedStatesList, states, transitions, childtransitionToStr, transitionToStr };
