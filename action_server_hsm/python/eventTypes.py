@@ -29,7 +29,6 @@ def extract_states_fron_jsonStateMachine(jsonStateMachine: dict) -> list:
         A list of states.
     '''
     trigger = []
-    valid_trigger = []
     for transition in jsonStateMachine['transitions']:
         if transition['trigger'] not in trigger:
             trigger.append(transition['trigger'])
@@ -37,12 +36,10 @@ def extract_states_fron_jsonStateMachine(jsonStateMachine: dict) -> list:
     for state in jsonStateMachine['states']:
         if state.children:
             for child in state.transitions:
-                if child.trigger not in trigger:
+                if child.trigger not in trigger and child.trigger[0] != 'i':
                     trigger.append(child)
-    for _trigger in trigger:
-        if _trigger[0] != 'i':
-            valid_trigger.append(_trigger)
-    return valid_trigger
+
+    return trigger
     
 class Event(BaseModel):
     '''
