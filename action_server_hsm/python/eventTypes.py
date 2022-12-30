@@ -55,6 +55,24 @@ class Event(BaseModel):
     timestamp: str
     event: str
     
+    @validator('jsonStateMachine')
+    def must_be_a_json(cls, v: dict) -> dict:
+        '''
+        Custom validator for jsonStateMachine to check if it is valid.
+        Args:
+            v(dict): a dict of states and transitions.
+        Raises:
+            ValueError, if ValueError arises.
+        Returns:
+            jsonStateMachine
+        '''
+        if v.keys().length == 0:
+            raise ValueError("State Machine in json format can't be empty.")
+
+        elif v['states'] == None or v['transitions'] == None:
+            raise ValueError("State Machine in json format must have states and transitions.")
+        return v
+
     @validator('timestamp')
     def must_be_a_timestamp(cls, v: str) -> datetime:
         '''

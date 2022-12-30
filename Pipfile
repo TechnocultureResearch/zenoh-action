@@ -4,10 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-eclipse-zenoh = "*"
-pydantic = "*"
-transitions = "*"
-pyyaml = "*"
+make = "*"
 
 [dev-packages]
 

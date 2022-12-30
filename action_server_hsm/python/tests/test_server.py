@@ -1,33 +1,39 @@
 import pytest
 import zenoh
-from zenoh import QueryTarget
-from config import ZenohConfig
+from stateMachine import BaseStateMachine, Publisher
+from config import ZenohConfig, ZenohSettings
 import json
-from server import Session
+from typing import Tuple
+from server import Session, QueryableCallback
 
-model = Session()
-zenoh_config = ZenohConfig()
-conf_obj, args = zenoh_config.zenohconfig()
-target = {
-    'ALL': QueryTarget.ALL(),
-    'BEST_MATCHING': QueryTarget.BEST_MATCHING(),
-    'ALL_COMPLETE': QueryTarget.ALL_COMPLETE(),}.get('ALL')
+@pytest.fixture
+def session() -> Tuple[zenoh.session, ZenohSettings]:
+    settings = ZenohSettings()
+    zenoh_config = ZenohConfig(settings)
+    pub = Publisher(settings)
+    pub.createZenohPublisher()
+    statemachine = BaseStateMachine()
+    conf_obj= zenoh_config.zenohconfig()
+    callback = QueryableCallback(settings, statemachine)
+    _session = Session(settings, statemachine, callback)
+    session = zenoh.open(conf_obj)
+    return session, settings
 
-zenoh.init_logger()
-session = zenoh.open(conf_obj)
-
-def test_statechart_returns_json(test_input="/statechart"):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_statechart_returns_json(session, test_input="/statechart"):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8'))
 
-def test_statechart_checks_if_state_exists_in_json(test_input="/statechart"):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_statechart_checks_if_state_exists_in_json(session, test_input="/statechart"):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8'))["states"]
 
-def test_statechart_checks_if_transition_exists_in_json(test_input="/statechart"):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_statechart_checks_if_transition_exists_in_json(session, test_input="/statechart"):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8'))["transitions"]
 
@@ -36,8 +42,9 @@ def test_statechart_checks_if_transition_exists_in_json(test_input="/statechart"
                                 ('/trigger?timestamp=1669897025.0759895&event=start'),
                                 ('/trigger?timestamp=1669897025.0759895&event=abort')
                                 ])                               
-def test_trigger_accepts_timestamped_events(test_input):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_trigger_accepts_timestamped_events(session, test_input):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8'))["response_code"] == "accepted"
 
@@ -45,13 +52,15 @@ def test_trigger_accepts_timestamped_events(test_input):
                             [
                                 ('/trigger?timestamp=1669899025.0759895&event=done'),
                                 ('/trigger?timestamp=1669899025.0759895&event=clearancetimeout')])
-def test_trigger_rejects_notallowed_events(test_input):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_trigger_rejects_notallowed_events(session, test_input):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8')) == "rejected"
 
-def test_trigger_rejects_invalid_timestamp(test_input="/trigger?event=done"):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_trigger_rejects_invalid_timestamp(session, test_input="/trigger?event=done"):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8'))["response_code"] == "rejected"
 
@@ -61,7 +70,8 @@ def test_trigger_rejects_invalid_timestamp(test_input="/trigger?event=done"):
                                 ('/trigger?timestamp=1669899025.0759895&event=awaitingclearanceerr'),
                                 ("/trigger?timestamp=1669899025.0759895")
                     ])
-def test_trigger_rejects_invalid_event(test_input):
-    replies = session.get(args.base_key_expr+test_input, zenoh.ListCollector(), target=target)
+def test_trigger_rejects_invalid_event(session, test_input):
+    session, settings = session()
+    replies = session.get(settings.base_key_expr+test_input, zenoh.ListCollector(), target=zenoh.QueryTarget.ALL())
     for reply in replies():
         json.loads(reply.ok.payload.decode('utf-8'))["response_code"] == "rejected"

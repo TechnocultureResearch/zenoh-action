@@ -189,7 +189,6 @@ class BaseStateMachine(HierarchicalMachine, MarkupMachine):
         """
         global pub
         if pub == None:
-            logging.warning("Publisher not initialized")
-            logging.info("Current State: {}".format(event_data.model.state))
+            raise ValueError("Publisher not initialized. Please initialize publisher.")
         else:
             pub.put(event_data.model.state)
