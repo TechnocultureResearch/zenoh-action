@@ -1,11 +1,10 @@
-#type: ignore
 import zenoh
 from zenoh import Query, Sample
 from pydantic import ValidationError
 from contextlib import contextmanager
 import logging
 from transitions import MachineError
-from typing import Any
+from typing import Any, Type, Iterator
 import time
 from stateMachine import BaseStateMachine, Publisher
 from config import ZenohConfig, ZenohSettings
@@ -15,7 +14,7 @@ import json
 logging.getLogger().setLevel(logging.DEBUG)
 
 @contextmanager
-def session_manager(settings: ZenohSettings, statemachine: Any, handlers: Any):
+def session_manager(settings: ZenohSettings, statemachine: Type, handlers: QueryableCallback) -> Iterator[Session]:
     '''
     This function creates a session object and closes it when the context is exited.
     '''
@@ -29,11 +28,11 @@ def session_manager(settings: ZenohSettings, statemachine: Any, handlers: Any):
         logging.debug("server closed")
     
 class QueryableCallback:
-    def __init__(self, statemachine: Any, settings: ZenohSettings) -> None:
+    def __init__(self, statemachine: Type, settings: ZenohSettings) -> None:
         self.statemachine: Any = statemachine
         self.settings = settings
 
-    def statechart(self) -> json:
+    def statechart(self) -> dict:
         '''
         Returns the statechart in json format.
         '''
@@ -87,7 +86,7 @@ class QueryableCallback:
             query.reply(Sample(self.settings.base_key_expr+"/statechart", payload))
 
 class Session:
-    def __init__(self, settings: ZenohSettings, statemachine: Any, handlers: QueryableCallback) -> None:
+    def __init__(self, settings: ZenohSettings, statemachine: Type, handlers: QueryableCallback) -> None:
         '''
         Initializes the variables.
         settings: object of the ZenohConfig class which validates zenoh configuration variables.

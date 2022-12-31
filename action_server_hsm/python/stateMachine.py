@@ -1,4 +1,4 @@
-#type: ignore
+import transitions
 from transitions.extensions.markup import MarkupMachine
 from transitions.extensions.factory import HierarchicalMachine
 from config import ZenohConfig, ZenohSettings
@@ -181,7 +181,7 @@ class BaseStateMachine(HierarchicalMachine, MarkupMachine):
         self.add_transition("error", "healthy", "unhealthy")
         self.add_transition("idead", "unhealthy", "final")
 
-    def publish_state(self, event_data) -> None:
+    def publish_state(self, event_data: transitions.core.EventData) -> None:
         """
         Method to publish event state on zenohd after every state change.
         Args:
