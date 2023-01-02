@@ -1,26 +1,10 @@
-#type: ignore
-from pydantic import BaseModel, validator, root_validator
+from pydantic import BaseModel, validator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable
+from typing import Callable, List
 from transitions import MachineError
-import json
 
-@dataclass
-class Trigger:
-    def __init__(self, event: str, statemachine: Any) -> None:
-        self.event = event
-        self.statemachine = statemachine
-    
-    def __call__(self) -> Callable:
-        try:
-            return self.statemachine.trigger(self.event)
-        except MachineError as error:
-            raise MachineError("Event is recognised but {}".format(error))
-        except AttributeError as error:
-            raise AttributeError("Event is not recognised or valid. {}".format(error))
-
-def extract_states_fron_jsonStateMachine(jsonStateMachine: dict) -> list:
+def extract_states_from_jsonStateMachine(jsonStateMachine: dict) -> List["trigger"]:
     '''
     Extracts states from jsonStateMachine.
     Args:
@@ -40,6 +24,20 @@ def extract_states_fron_jsonStateMachine(jsonStateMachine: dict) -> list:
                     trigger.append(child)
 
     return trigger
+
+@dataclass
+class Trigger:
+    def __init__(self, event: str, statemachine: Any) -> None:
+        self.event = event
+        self.statemachine = statemachine
+    
+    def __call__(self) -> Callable:
+        try:
+            return self.statemachine.trigger(self.event)
+        except MachineError as error:
+            raise MachineError("Event is recognised but {}".format(error))
+        except AttributeError as error:
+            raise AttributeError("Event is not recognised or valid. {}".format(error))
     
 class Event(BaseModel):
     '''
@@ -88,7 +86,7 @@ class Event(BaseModel):
         return s
     
     @validator('event')
-    def must_be_a_valid_event(cls, v, values) -> str:
+    def must_be_a_valid_event(cls, v: str, values) -> str:
         '''
         Custom validator to check if event is valid and checks if user can trigger that event.
         Args:
@@ -98,9 +96,7 @@ class Event(BaseModel):
         Returns:
             event
         '''
-        valid_event = extract_states_fron_jsonStateMachine(values['jsonStateMachine'])
+        valid_event = extract_states_from_jsonStateMachine(values['jsonStateMachine'])
         if v not in valid_event:
             raise ValueError('Event is not valid or you are not allowed to trigger event.')
-        return v
-
-    
+        return v  

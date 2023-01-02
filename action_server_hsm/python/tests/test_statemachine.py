@@ -1,4 +1,3 @@
-#type: ignore
 from stateMachine import BaseStateMachine
 import pytest
 

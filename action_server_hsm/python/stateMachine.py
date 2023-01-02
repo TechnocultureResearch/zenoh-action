@@ -20,7 +20,6 @@ class Publisher:
         session: zenoh.Session = zenoh.open(conf)
         pub = session.declare_publisher(self.settings.base_key_expr+"/state")
 
-
 class Unhealthy(HierarchicalMachine):
     """
     Heathy state machine which triggers states which are healthy for the machine.
@@ -80,7 +79,6 @@ class Unhealthy(HierarchicalMachine):
             queued=False,
             send_event=True
         )
-
 
 class Healthy(HierarchicalMachine):
     """

@@ -1,4 +1,3 @@
-#type: ignore
 import pytest
 import zenoh
 from stateMachine import BaseStateMachine, Publisher

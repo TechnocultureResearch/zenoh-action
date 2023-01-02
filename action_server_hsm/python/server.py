@@ -4,32 +4,17 @@ from pydantic import ValidationError
 from contextlib import contextmanager
 import logging
 from transitions import MachineError
-from typing import Any, Type, Iterator
+from typing import Type, Iterator
 import time
 from stateMachine import BaseStateMachine, Publisher
 from config import ZenohConfig, ZenohSettings
 from eventTypes import Event, Trigger
-import json
 
 logging.getLogger().setLevel(logging.DEBUG)
 
-@contextmanager
-def session_manager(settings: ZenohSettings, statemachine: Type, handlers: QueryableCallback) -> Iterator[Session]:
-    '''
-    This function creates a session object and closes it when the context is exited.
-    '''
-    try:
-        session: Session = Session(settings = settings, statemachine=statemachine, handlers=handlers)
-        yield session
-    except KeyboardInterrupt:
-        logging.error("Interrupted by user")
-    finally:
-        session.close()
-        logging.debug("server closed")
-    
 class QueryableCallback:
     def __init__(self, statemachine: Type, settings: ZenohSettings) -> None:
-        self.statemachine: Any = statemachine
+        self.statemachine: Type = statemachine
         self.settings = settings
 
     def statechart(self) -> dict:
@@ -93,7 +78,7 @@ class Session:
         statemachine: object statemachine to coordinate with statechart and trigger endpoint. 
         '''
         self.settings: ZenohSettings = settings
-        self.statemachine: Any = statemachine
+        self.statemachine: Type = statemachine
         self.handler: QueryableCallback = handlers
         self.open()
     
@@ -120,6 +105,20 @@ class Session:
         self.statechart_queryable.undeclare()
         self.session.close()
 
+@contextmanager
+def session_manager(settings: ZenohSettings, statemachine: Type, handlers: QueryableCallback) -> Iterator[Session]:
+    '''
+    This function creates a session object and closes it when the context is exited.
+    '''
+    try:
+        session: Session = Session(settings = settings, statemachine=statemachine, handlers=handlers)
+        yield session
+    except KeyboardInterrupt:
+        logging.error("Interrupted by user")
+    finally:
+        session.close()
+        logging.debug("server closed")
+    
 if __name__ == "__main__":
 
     zenoh.init_logger()
