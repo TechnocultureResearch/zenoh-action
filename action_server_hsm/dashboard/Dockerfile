@@ -3,7 +3,7 @@ ENV NODE_ENV development
 
 WORKDIR /dashboard
 
-COPY package.json yarn.lock .
+COPY package.json yarn.lock ./
 RUN yarn install --pure-lockfile
 
 COPY . .

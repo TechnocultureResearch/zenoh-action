@@ -1,20 +1,27 @@
 COMPOSE_DIR:=test
 
 MINIMAL:=./${COMPOSE_DIR}/minimal.yml
+MINIMAL_PY:=./${COMPOSE_DIR}/minimal-python.yml
 STANDALONE:=./${COMPOSE_DIR}/standalone.yml
 
 ACTION_FILE:=action.json
 DASHBOARD_DATA:=dashboard/src/data
 
-all: build_min min
+all: py
 
-min:
+min: build_min
 	docker compose -f ${MINIMAL} up
 
 build_min:
 	docker compose -f ${MINIMAL} build
 
-main:
+py: py_build
+	docker compose -f ${MINIMAL_PY} up
+
+py_build:
+	docker compose -f ${MINIMAL_PY} build
+
+main: build_main
 	docker compose -f ${STANDALONE} up
 
 build_main:
